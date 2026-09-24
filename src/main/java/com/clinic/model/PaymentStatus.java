@@ -12,6 +12,14 @@ public enum PaymentStatus {
         this.displayName = displayName;
     }
 
+    public String getDisplayName() {
+        return this.displayName;
+    }
+
+    public boolean isSettled() {
+        return this == PAID || this == REFUNDED;
+    }
+
     @Override
     public String toString() {
         return this.displayName;
