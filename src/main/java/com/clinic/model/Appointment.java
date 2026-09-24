@@ -51,3 +51,31 @@ public class Appointment {
     public String getReason() { return reason; }
     public AppointmentStatus getStatus() { return status; }
     public Long getParentAppointmentId() { return parentAppointmentId; }
+
+    // An appointment is a follow-up when it references a previous appointment.
+    public boolean isFollowUp() {
+        return this.parentAppointmentId != null;
+    }
+
+    public void setStatus(AppointmentStatus newStatus) {
+        if (newStatus == null) {
+            throw new IllegalArgumentException("Status cannot be null.");
+        }
+        this.status = newStatus;
+    }
+
+    public void setAppointmentDateTime(LocalDateTime newDateTime) {
+        if (newDateTime == null) {
+            throw new IllegalArgumentException("Appointment date/time cannot be null.");
+        }
+        this.appointmentDateTime = newDateTime;
+    }
+
+    public void setReason(String newReason) {
+        if (newReason == null || newReason.trim().isEmpty()) {
+            throw new IllegalArgumentException("Reason cannot be empty.");
+        }
+        this.reason = newReason.trim();
+    }
+
+
