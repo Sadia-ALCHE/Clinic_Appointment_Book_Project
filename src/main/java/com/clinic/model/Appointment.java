@@ -36,3 +36,11 @@ public class Appointment {
         this.status = (status != null) ? status : AppointmentStatus.SCHEDULED;
         this.parentAppointmentId = parentAppointmentId;
     }
+
+    // Overloaded constructor for brand-new root appointments (no parent ID)
+    public Appointment(Long id, Long patientId, Long doctorId,
+                       LocalDateTime appointmentDateTime, String reason) {
+        this(id, patientId, doctorId, appointmentDateTime, reason,
+                AppointmentStatus.SCHEDULED, null);
+    }
+
