@@ -44,3 +44,10 @@ public class Appointment {
                 AppointmentStatus.SCHEDULED, null);
     }
 
+    public Long getId() { return id; }
+    public Long getPatientId() { return patientId; }
+    public Long getDoctorId() { return doctorId; }
+    public LocalDateTime getAppointmentDateTime() { return appointmentDateTime; }
+    public String getReason() { return reason; }
+    public AppointmentStatus getStatus() { return status; }
+    public Long getParentAppointmentId() { return parentAppointmentId; }
