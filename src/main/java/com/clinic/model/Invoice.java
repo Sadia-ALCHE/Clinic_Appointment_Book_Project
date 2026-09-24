@@ -58,3 +58,19 @@ public class Invoice {
         return total;
     }
 
+    public void markAsPaid() {
+        if (this.status == PaymentStatus.REFUNDED) {
+            throw new IllegalStateException("Cannot mark a refunded invoice as paid.");
+        }
+        // A refunded invoice cannot return to the PAID state.
+        this.status = PaymentStatus.PAID;
+    }
+
+    public void markAsRefunded() {
+        if (this.status != PaymentStatus.PAID) {
+            throw new IllegalStateException("Only paid invoices can be refunded.");
+        }
+        // Refunds are only allowed after payment has been completed.
+        this.status = PaymentStatus.REFUNDED;
+    }
+}
