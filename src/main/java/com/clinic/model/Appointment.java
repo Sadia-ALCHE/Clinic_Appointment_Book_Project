@@ -78,4 +78,13 @@ public class Appointment {
         this.reason = newReason.trim();
     }
 
+    public void setParentAppointmentId(Long parentAppointmentId) {
+        // Prevent an appointment from referencing itself as its parent.
+        if (Objects.equals(this.id, parentAppointmentId) && this.id != null) {
+            throw new IllegalArgumentException("An appointment cannot be a follow-up of itself.");
+        }
+        this.parentAppointmentId = parentAppointmentId;
+    }
+}
+
 
