@@ -21,3 +21,18 @@ public class InvoiceItem {
         this.amountMur = amountMur;
     }
 
+    // Constructor for creating items before invoice ID assignment
+    public InvoiceItem(String description, double amountMur) {
+        this(null, null, description, amountMur);
+    }
+
+    public Long getId() { return id; }
+    public Long getInvoiceId() { return invoiceId; }
+    public String getDescription() { return description; }
+    public double getAmountMur() { return amountMur; }
+
+    public void setInvoiceId(Long invoiceId) {
+        this.invoiceId = invoiceId;
+    }
+}
+
