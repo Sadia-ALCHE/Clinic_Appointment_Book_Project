@@ -31,4 +31,29 @@ public class Invoice {
         // New invoices start as PENDING unless another status is provided.
         this.status = (status != null) ? status : PaymentStatus.PENDING;
     }
-}
+
+    public Long getId() { return id; }
+    public Long getAppointmentId() { return appointmentId; }
+    public String getInvoiceNumber() { return invoiceNumber; }
+    public LocalDate getIssueDate() { return issueDate;}
+    public PaymentStatus getStatus() { return status; }
+
+    public void addItem(InvoiceItem item) {
+        if (item == null) {
+            throw new IllegalArgumentException("Invoice item cannot be null.");
+        }
+        item.setInvoiceId(this.id);
+        this.items.add(item);
+    }
+
+    public List<InvoiceItem> getItems() {
+        return Collections.unmodifiableList(this.items);
+    }
+
+    public double calculateTotalMur() {
+        double total = 0.0;
+        for (InvoiceItem item : items) {
+            total += item.getAmountMur();
+        }
+        return total;
+    }
