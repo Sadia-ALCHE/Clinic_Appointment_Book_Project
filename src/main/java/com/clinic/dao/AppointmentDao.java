@@ -8,7 +8,6 @@ import java.util.List;
 
 // DAO interface for Appointment entities.
 // Provides queries for patients, doctors, dates, and follow-ups.
-
 public interface AppointmentDao extends Dao<Appointment, Long> {
 
     List<Appointment> findByPatientId(Long patientId);
