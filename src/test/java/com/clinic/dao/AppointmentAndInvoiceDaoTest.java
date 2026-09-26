@@ -1,5 +1,10 @@
 package com.clinic.dao;
 
+import com.clinic.dao.sqlite.SqlitePatientDao;
+import com.clinic.dao.sqlite.SqliteDoctorDao;
+import com.clinic.dao.sqlite.SqliteAppointmentDao;
+import com.clinic.dao.sqlite.SqliteInvoiceDao;
+
 import com.clinic.model.Appointment;
 import com.clinic.model.AppointmentStatus;
 import com.clinic.model.Invoice;
@@ -49,7 +54,7 @@ public class AppointmentAndInvoiceDaoTest {
                         "Mohammad",
                         "z.mohammad@mediche.mu",
                         "+230 5789 0011",
-                        "1994-06-12",
+                        LocalDate.of(1994, 6, 12),
                         "B+"
                 )
         );
@@ -66,7 +71,7 @@ public class AppointmentAndInvoiceDaoTest {
                 LocalDateTime.of(2026, 9, 15, 9, 30);
 
         // Create the root appointment with no parent appointment.
-        Appointment rootAppt = appointmentDao.save(new Appointment(testPatientId, testDoctorId, visitTime, "Initial Fever Consultation", AppointmentStatus.SCHEDULED, null));
+        Appointment rootAppt = appointmentDao.save(new Appointment(null, testPatientId, testDoctorId, visitTime, "Initial Fever Consultation", AppointmentStatus.SCHEDULED, null));
         assertNotNull(
                 rootAppt.getId(),
                 "Root appointment must receive a generated ID"
@@ -75,7 +80,7 @@ public class AppointmentAndInvoiceDaoTest {
 
         // Create a follow-up appointment linked to the root appointment.
         LocalDateTime followUpTime = visitTime.plusDays(7);
-        Appointment followUpAppt = appointmentDao.save(new Appointment(testPatientId, testDoctorId, followUpTime, "Post-treatment Blood Check", AppointmentStatus.SCHEDULED, rootAppt.getId()));
+        Appointment followUpAppt = appointmentDao.save(new Appointment(null, testPatientId, testDoctorId, followUpTime, "Post-treatment Blood Check", AppointmentStatus.SCHEDULED, rootAppt.getId()));
         assertNotNull(followUpAppt.getId());
         assertTrue(followUpAppt.isFollowUp(), "Follow-up visit must have non-null parentAppointmentId");
         assertEquals(rootAppt.getId(), followUpAppt.getParentAppointmentId());
@@ -92,7 +97,7 @@ public class AppointmentAndInvoiceDaoTest {
         LocalDateTime visitTime =
                 LocalDateTime.of(2026, 9, 16, 11, 0);
         // Create a completed appointment that will be linked to the invoice.
-        Appointment appt = appointmentDao.save(new Appointment(testPatientId, testDoctorId, visitTime, "Cardiology Checkup", AppointmentStatus.COMPLETED, null));
+        Appointment appt = appointmentDao.save(new Appointment(null, testPatientId, testDoctorId, visitTime, "Cardiology Checkup", AppointmentStatus.COMPLETED, null));
 
         // Create an invoice with itemized charges in Mauritian Rupees (MUR).
         Invoice invoice = new Invoice(appt.getId(), "INV-2026-0091", LocalDate.of(2026, 9, 16), PaymentStatus.PENDING);
