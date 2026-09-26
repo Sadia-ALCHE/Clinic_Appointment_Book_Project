@@ -232,3 +232,22 @@ public class SqliteAppointmentDao implements AppointmentDao {
         return list;
     }
 
+    @Override
+    public boolean updateStatus(Long appointmentId, AppointmentStatus newStatus) {
+        // Both values are required to perform the update.
+        if (appointmentId == null || newStatus == null) return false;
+        // Update only the status of the selected appointment.
+        String sql = "UPDATE appointments SET status = ? WHERE id = ?; ";
+        try (Connection conn = dbConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            // Store the enum as text, eg. "COMPLETED".
+            pstmt.setString(1, newStatus.name());
+            // Identify which appointment should be updated.
+            pstmt.setLong(2, appointmentId);
+            // executeUpdate() returns the number of rows affected.
+            return pstmt.executeUpdate() == 1;
+        } catch (SQLException e) {
+            throw new RuntimeException("Error updating appointment status: " + appointmentId, e);
+        }
+    }
+
