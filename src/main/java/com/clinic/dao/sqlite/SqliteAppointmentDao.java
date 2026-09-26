@@ -319,3 +319,22 @@ public class SqliteAppointmentDao implements AppointmentDao {
         }
     }
 
+    private List<Appointment> queryAppointmentList(String sql, Long idParam) {
+        // Create a list to store all matching appointments.
+        List<Appointment> list = new ArrayList<>();
+        try (Connection conn = dbConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            // Put the ID into the SQL query's ? placeholder.
+            pstmt.setLong(1, idParam);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                // Convert every database row into an Appointment object.
+                while (rs.next()) {
+                    list.add(mapRowToAppointment(rs));
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Error executing appointment query: " + sql, e);
+        }
+        return list;
+    }
+
