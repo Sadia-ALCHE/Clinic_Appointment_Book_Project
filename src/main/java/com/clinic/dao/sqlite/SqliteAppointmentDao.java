@@ -205,4 +205,30 @@ public class SqliteAppointmentDao implements AppointmentDao {
         return queryAppointmentList(sql, doctorId);
     }
 
+    @Override
+    public List<Appointment> findByDate(LocalDate date) {
+        // If no date was provided, return an empty list.
+        if (date == null)
+            return List.of();
+        // SQLite extracts the date portion from appointment_datetime.
+        String sql = " SELECT id, patient_id, doctor_id, appointment_datetime, reason, status, parent_appointment_id FROM appointments WHERE date(appointment_datetime) = ? ORDER BY appointment_datetime ASC; ";
+        List<Appointment> list = new ArrayList<>();
+
+        try (Connection conn = dbConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            // LocalDate.toString() produces YYYY-MM-DD,which matches the date format stored in the database.
+            pstmt.setString(1, date.toString());
+            try (ResultSet rs = pstmt.executeQuery()) {
+                // Add every appointment found on that date.
+                while (rs.next()) {
+                    list.add(mapRowToAppointment(rs));
+                }
+            }
+
+        } catch (SQLException e) {
+            throw new RuntimeException("Error querying appointments for date " + date, e);
+        }
+        return list;
+    }
 
