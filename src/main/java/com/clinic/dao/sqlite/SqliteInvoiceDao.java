@@ -22,3 +22,19 @@ public class SqliteInvoiceDao implements InvoiceDao {
         if (dbConnection == null) {throw new IllegalArgumentException("DatabaseConnection cannot be null.");}
         this.dbConnection = dbConnection;
     }
+
+    @Override
+    public Invoice save(Invoice invoice) {
+        if (invoice == null) throw new IllegalArgumentException("Invoice cannot be null.");
+
+        // Insert the main invoice record.
+        String insertInvoiceSql = """
+        INSERT INTO invoices (appointment_id, invoice_number, issue_date, status)
+        VALUES (?, ?, ?, ?);
+        """;
+        // Insert each item belonging to the invoice.
+        String insertItemSql = """
+        INSERT INTO invoice_items (invoice_id, description, amount_mur)
+        VALUES (?, ?, ?);
+        """;
+    }
