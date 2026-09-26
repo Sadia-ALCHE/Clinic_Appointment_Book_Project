@@ -11,6 +11,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 public class SqliteInvoiceDao implements InvoiceDao {
@@ -111,4 +114,21 @@ public class SqliteInvoiceDao implements InvoiceDao {
             }
         }
     }
-}
+
+    @Override
+    public Optional<Invoice> findById(Long id) {
+        if (id == null) return Optional.empty();
+        String sql = "SELECT id, appointment_id, invoice_number, issue_date, status FROM invoices WHERE id = ?; ";
+        try (Connection conn = dbConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, id);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return Optional.of(hydrateInvoice(conn, rs));
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Error finding invoice by ID: " + id, e);
+        }
+        return Optional.empty();
+    }
