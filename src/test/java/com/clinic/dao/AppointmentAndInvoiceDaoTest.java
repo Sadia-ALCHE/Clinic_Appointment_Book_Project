@@ -85,3 +85,39 @@ public class AppointmentAndInvoiceDaoTest {
         assertEquals(1, followUps.size(), "Should find exactly 1 child follow-up appointment");
         assertEquals(followUpAppt.getId(), followUps.get(0).getId());
     }
+
+    @Test
+    @DisplayName("Verify master-detail invoice creation and total calculation in Mauritian Rupees (MUR)")
+    void testSaveAndHydrateInvoiceInMur() {
+        LocalDateTime visitTime =
+                LocalDateTime.of(2026, 9, 16, 11, 0);
+        // Create a completed appointment that will be linked to the invoice.
+        Appointment appt = appointmentDao.save(new Appointment(testPatientId, testDoctorId, visitTime, "Cardiology Checkup", AppointmentStatus.COMPLETED, null));
+
+        // Create an invoice with itemized charges in Mauritian Rupees (MUR).
+        Invoice invoice = new Invoice(appt.getId(), "INV-2026-0091", LocalDate.of(2026, 9, 16), PaymentStatus.PENDING);
+        invoice.addItem(new InvoiceItem("Specialist Consultation Fee", 1500.0)); // Dr. Sarah Mensah rate in MUR
+        invoice.addItem(new InvoiceItem("Full Blood Count Diagnostic Panel", 450.0)); // MUR 450.0
+
+        // Save the invoice and verify that it receives a database-generated ID.
+        Invoice saved = invoiceDao.save(invoice);
+        assertNotNull(saved.getId(), "Invoice must receive a generated ID");
+        assertEquals(1950.0, saved.calculateTotalMur(), "Total must aggregate itemized charges in MUR accurately");
+
+        // Query the invoice by appointment and verify its items were loaded.
+        Optional<Invoice> queried = invoiceDao.findByAppointmentId(appt.getId());
+        assertTrue(queried.isPresent());
+        assertEquals("INV-2026-0091", queried.get().getInvoiceNumber());
+        assertEquals(2, queried.get().getItems().size(), "Hydrated invoice must contain all itemized charges");
+        assertEquals(1950.0, queried.get().calculateTotalMur());
+
+        // Verify that the payment status can be updated.
+        boolean updated = invoiceDao.updatePaymentStatus(saved.getId(), PaymentStatus.PAID);
+        assertTrue(updated);
+
+        // Retrieve the invoice again and confirm the new status was persisted.
+        Optional<Invoice> paidInvoice = invoiceDao.findById(saved.getId());
+        assertTrue(paidInvoice.isPresent());
+        assertEquals(PaymentStatus.PAID, paidInvoice.get().getStatus());
+    }
+}
