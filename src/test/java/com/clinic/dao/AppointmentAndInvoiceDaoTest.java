@@ -58,4 +58,30 @@ public class AppointmentAndInvoiceDaoTest {
         // Doctor 1 is pre-seeded by the database schema.
         testDoctorId = 1L;
     }
-}
+
+    @Test
+    @DisplayName("Verify root appointment and follow-up appointment tree persistence")
+    void testFollowUpAppointmentTree() {
+        LocalDateTime visitTime =
+                LocalDateTime.of(2026, 9, 15, 9, 30);
+
+        // Create the root appointment with no parent appointment.
+        Appointment rootAppt = appointmentDao.save(new Appointment(testPatientId, testDoctorId, visitTime, "Initial Fever Consultation", AppointmentStatus.SCHEDULED, null));
+        assertNotNull(
+                rootAppt.getId(),
+                "Root appointment must receive a generated ID"
+        );
+        assertFalse(rootAppt.isFollowUp(), "Root visit must have parentAppointmentId == null");
+
+        // Create a follow-up appointment linked to the root appointment.
+        LocalDateTime followUpTime = visitTime.plusDays(7);
+        Appointment followUpAppt = appointmentDao.save(new Appointment(testPatientId, testDoctorId, followUpTime, "Post-treatment Blood Check", AppointmentStatus.SCHEDULED, rootAppt.getId()));
+        assertNotNull(followUpAppt.getId());
+        assertTrue(followUpAppt.isFollowUp(), "Follow-up visit must have non-null parentAppointmentId");
+        assertEquals(rootAppt.getId(), followUpAppt.getParentAppointmentId());
+
+        // Query the database for appointments linked to the root appointment.
+        List<Appointment> followUps = appointmentDao.findByParentAppointmentId(rootAppt.getId());
+        assertEquals(1, followUps.size(), "Should find exactly 1 child follow-up appointment");
+        assertEquals(followUpAppt.getId(), followUps.get(0).getId());
+    }
