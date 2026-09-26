@@ -198,3 +198,40 @@ public class SqliteInvoiceDao implements InvoiceDao {
         }
         return list;
     }
+
+    @Override
+    public boolean update(Invoice entity) {
+        throw new UnsupportedOperationException("Invoices are legally immutable financial records. Transition status instead.");
+    }
+
+    @Override
+    public boolean deleteById(Long id) {
+        // Enforce Financial Audit Governance: Never delete invoices from SQLite!
+        throw new UnsupportedOperationException("Financial audit records cannot be deleted. Transition status to CANCELLED or REFUNDED.");
+    }
+
+    private Invoice hydrateInvoice(Connection conn, ResultSet rs) throws SQLException {
+        long id = rs.getLong("id");
+        long appointmentId = rs.getLong("appointment_id");
+        String invoiceNumber = rs.getString("invoice_number");
+        LocalDate issueDate = LocalDate.parse(rs.getString("issue_date"));
+        PaymentStatus status = PaymentStatus.valueOf(rs.getString("status"));
+
+        Invoice invoice = new Invoice(id, appointmentId, invoiceNumber, issueDate, status);
+
+        // Load itemized line charges in Mauritian Rupees (MUR)
+        String itemSql = "SELECT description, amount_mur FROM invoice_items WHERE invoice_id = ? ORDER BY id ASC;";
+        try (PreparedStatement itemStmt = conn.prepareStatement(itemSql)) {
+            itemStmt.setLong(1, id);
+            try (ResultSet itemRs = itemStmt.executeQuery()) {
+                while (itemRs.next()) {
+                    invoice.addItem(new InvoiceItem(
+                            itemRs.getString("description"),
+                            itemRs.getDouble("amount_mur")
+                    ));
+                }
+            }
+        }
+        return invoice;
+    }
+}
