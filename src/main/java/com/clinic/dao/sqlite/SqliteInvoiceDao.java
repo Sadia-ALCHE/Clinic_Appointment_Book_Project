@@ -169,4 +169,32 @@ public class SqliteInvoiceDao implements InvoiceDao {
         return Optional.empty();
     }
 
+    @Override
+    public boolean updatePaymentStatus(Long invoiceId, PaymentStatus newStatus) {
+        if (invoiceId == null || newStatus == null) return false;
+        String sql = "UPDATE invoices SET status = ? WHERE id = ?;";
+        try (Connection conn = dbConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, newStatus.name());
+            pstmt.setLong(2, invoiceId);
+            return pstmt.executeUpdate() == 1;
+        } catch (SQLException e) {
+            throw new RuntimeException("Error updating invoice status: " + invoiceId, e);
+        }
+    }
 
+    @Override
+    public List<Invoice> findAll() {
+        String sql = "SELECT id, appointment_id, invoice_number, issue_date, status FROM invoices ORDER BY id DESC;";
+        List<Invoice> list = new ArrayList<>();
+        try (Connection conn = dbConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
+            while (rs.next()) {
+                list.add(hydrateInvoice(conn, rs));
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Error finding all invoices", e);
+        }
+        return list;
+    }
