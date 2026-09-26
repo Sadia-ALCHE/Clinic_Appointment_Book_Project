@@ -10,6 +10,7 @@ import java.sql.Statement;
 import java.sql.Types;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Optional;
 
 public class SqliteAppointmentDao implements AppointmentDao {
 
@@ -98,5 +99,39 @@ public class SqliteAppointmentDao implements AppointmentDao {
                     "Database error saving appointment: " + e.getMessage(), e);
         }
     }
+
+    @Override
+    public Optional<Appointment> findById(Long id) {
+        // If no ID was provided, there is nothing to search for.
+        if (id == null) {
+            return Optional.empty();
+        }
+
+        // SQL query to find one appointment by its ID.
+        String sql = "SELECT id, patient_id, doctor_id, appointment_datetime, reason, status, parent_appointment_id FROM appointments WHERE id = ?;";
+
+        try (Connection conn = dbConnection.getConnection();
+             // Prepare the SQL query.
+             PreparedStatement pstmt = conn.prepareStatement(sql)
+        ) {
+
+            // Replace the ? with the appointment ID.
+            pstmt.setLong(1, id);
+            // Execute the SELECT query.
+            try (ResultSet rs = pstmt.executeQuery()) {
+                // If a matching appointment was found,
+                if (rs.next()) {
+                    // Convert the database row into an Appointment object.
+                    return Optional.of(mapRowToAppointment(rs));
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Database error finding appointment by ID: " + id, e);
+        }
+        // No appointment with that ID was found.
+        return Optional.empty();
+    }
+
+
 
 
