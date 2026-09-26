@@ -1,6 +1,7 @@
-package com.clinic.dao;
+package com.clinic.dao.sqlite;
 
 import com.clinic.model.Appointment;
+import com.clinic.model.AppointmentStatus;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -8,8 +9,11 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 public class SqliteAppointmentDao implements AppointmentDao {
@@ -132,6 +136,29 @@ public class SqliteAppointmentDao implements AppointmentDao {
         return Optional.empty();
     }
 
+    private Appointment mapRowToAppointment(ResultSet rs) throws SQLException {
+        // Read the appointment ID from the database row.
+        long id = rs.getLong("id");
+        // Read the patient and doctor IDs.
+        long patientId = rs.getLong("patient_id");
+        long doctorId = rs.getLong("doctor_id");
+        // SQLite stores the date/time as text.
+        // Convert that text back into a Java LocalDateTime.
+        LocalDateTime dateTime = LocalDateTime.parse(rs.getString("appointment_datetime"), ISO_FORMATTER);
+        // Read the appointment reason.
+        String reason = rs.getString("reason");
+        // Convert the stored text, such as "SCHEDULED",back into the AppointmentStatus enum.
+        AppointmentStatus status = AppointmentStatus.valueOf(rs.getString("status"));
 
+        Long parentId = null;
+        long rawParentId = rs.getLong("parent_appointment_id");
 
+        // getLong() returns 0 when the database value is NULL,so we must check wasNull() to know whether it was actually NULL.
+        if (!rs.wasNull()) {
+            parentId = rawParentId;
+        }
 
+        // Build and return a Java Appointment object from the database.
+        return new Appointment(id, patientId, doctorId, dateTime, reason, status, parentId);
+    }
+}
