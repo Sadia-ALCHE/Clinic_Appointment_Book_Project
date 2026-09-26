@@ -191,4 +191,18 @@ public class SqliteAppointmentDao implements AppointmentDao {
         return list;
     }
 
+    @Override
+    public List<Appointment> findByPatientId(Long patientId) {
+        // Find all appointments belonging to one patient.
+        String sql = "SELECT id, patient_id, doctor_id, appointment_datetime, reason, status, parent_appointment_id FROM appointments WHERE patient_id = ? ORDER BY appointment_datetime DESC;";
+        return queryAppointmentList(sql, patientId);
+    }
+
+    @Override
+    public List<Appointment> findByDoctorId(Long doctorId) {
+        // Find all appointments belonging to one doctor.
+        String sql = " SELECT id, patient_id, doctor_id, appointment_datetime, reason, status, parent_appointment_id FROM appointments WHERE doctor_id = ? ORDER BY appointment_datetime ASC;";
+        return queryAppointmentList(sql, doctorId);
+    }
+
 
