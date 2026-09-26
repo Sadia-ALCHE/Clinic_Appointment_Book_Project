@@ -251,3 +251,22 @@ public class SqliteAppointmentDao implements AppointmentDao {
         }
     }
 
+    @Override
+    public List<Appointment> findAll() {
+        // Get every appointment from the database.
+        String sql = "SELECT id, patient_id, doctor_id, appointment_datetime, reason, status, parent_appointment_id FROM appointments ORDER BY appointment_datetime DESC; ";
+        List<Appointment> list = new ArrayList<>();
+        try (Connection conn = dbConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
+            // Convert every database row into an Appointment object.
+            while (rs.next()) {
+                list.add(mapRowToAppointment(rs));
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Error querying all appointments", e);
+        }
+        return list;
+    }
+
+
