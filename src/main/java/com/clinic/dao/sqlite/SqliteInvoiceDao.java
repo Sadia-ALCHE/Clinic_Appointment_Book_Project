@@ -19,7 +19,9 @@ public class SqliteInvoiceDao implements InvoiceDao {
     // Creates the DAO using the provided database connection.
 
     public SqliteInvoiceDao(DatabaseConnection dbConnection) {
-        if (dbConnection == null) {throw new IllegalArgumentException("DatabaseConnection cannot be null.");}
+        if (dbConnection == null) {
+            throw new IllegalArgumentException("DatabaseConnection cannot be null.");
+        }
         this.dbConnection = dbConnection;
     }
 
@@ -29,13 +31,41 @@ public class SqliteInvoiceDao implements InvoiceDao {
 
         // Insert the main invoice record.
         String insertInvoiceSql = """
-            INSERT INTO invoices (appointment_id, invoice_number, issue_date, status)
-            VALUES (?, ?, ?, ?);
-            """;
+                INSERT INTO invoices (appointment_id, invoice_number, issue_date, status)
+                VALUES (?, ?, ?, ?);
+                """;
         // Insert each item belonging to the invoice.
         String insertItemSql = """
-            INSERT INTO invoice_items (invoice_id, description, amount_mur)
-            VALUES (?, ?, ?);
-            """;
+                INSERT INTO invoice_items (invoice_id, description, amount_mur)
+                VALUES (?, ?, ?);
+                """;
 
+        Connection conn = null;
+        boolean originalAutoCommit = true;
 
+        try {
+            conn = dbConnection.getConnection();
+            originalAutoCommit = conn.getAutoCommit();
+            // Start transaction so invoice and its items are saved together.
+            conn.setAutoCommit(false);
+
+        } catch (SQLException e) {
+            if (conn != null) {
+                try {
+                    conn.rollback();
+                } catch (SQLException rollbackEx) {
+                    // Keep the original database error.
+                }
+            }
+            throw new RuntimeException("Transaction rolled back while saving invoice: " + e.getMessage(), e);
+        } finally {
+            if (conn != null) {
+                try {
+                    conn.setAutoCommit(originalAutoCommit);
+                    conn.close();
+                } catch (SQLException e) {
+                    // Connection cleanup failure.
+            }
+        }
+    }
+}
