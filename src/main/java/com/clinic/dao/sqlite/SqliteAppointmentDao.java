@@ -303,5 +303,19 @@ public class SqliteAppointmentDao implements AppointmentDao {
         }
     }
 
-
+    @Override
+    public boolean deleteById(Long id) {
+        // An ID is required to know which appointment to delete.
+        if (id == null) return false;
+        String sql = "DELETE FROM appointments WHERE id = ?; ";
+        try (Connection conn = dbConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            // Tell SQLite which appointment to delete.
+            pstmt.setLong(1, id);
+            // Return true if exactly one row was deleted.
+            return pstmt.executeUpdate() == 1;
+        } catch (SQLException e) {
+            throw new RuntimeException("Error deleting appointment " + "(check foreign key restrictions): " + id, e);
+        }
+    }
 
