@@ -1,5 +1,7 @@
 package com.clinic.dao.sqlite;
 
+import com.clinic.dao.AppointmentDao;
+import com.clinic.dao.DatabaseConnection;
 import com.clinic.model.Appointment;
 import com.clinic.model.AppointmentStatus;
 
@@ -32,7 +34,6 @@ public class SqliteAppointmentDao implements AppointmentDao {
                     "DatabaseConnection cannot be null."
             );
         }
-
         this.dbConnection = dbConnection;
     }
 
@@ -44,9 +45,7 @@ public class SqliteAppointmentDao implements AppointmentDao {
 
         // The ? symbols are serving as placeholders for the actual values
         String sql = """
-        
-                INSERT INTO appointments
-        (patient_id, doctor_id, appointment_datetime, reason, status, parent_appointment_id)
+        INSERT INTO appointments(patient_id, doctor_id, appointment_datetime, reason, status, parent_appointment_id)
         VALUES (?, ?, ?, ?, ?, ?);
         """;
 
@@ -281,10 +280,8 @@ public class SqliteAppointmentDao implements AppointmentDao {
         // Update all editable appointment fields.
         String sql =
                 """
-            UPDATE
-                appointments
-            SET patient_id = ?, doctor_id = ?, appointment_datetime = ?, reason = ?, status = ?,
-                            parent_appointment_id = ?
+            UPDATE appointments
+            SET patient_id = ?, doctor_id = ?, appointment_datetime = ?, reason = ?, status = ?, parent_appointment_id = ?
             WHERE id = ?;
             """;
         try (Connection conn = dbConnection.getConnection();
@@ -296,10 +293,7 @@ public class SqliteAppointmentDao implements AppointmentDao {
             pstmt.setString(4, appt.getReason());
             pstmt.setString(5, appt.getStatus().name());
             // parent_appointment_id is allowed to be NULL.
-            if (appt.getParentAppointmentId() != nu
-            ll) {pst
-                mt. setLong(6, appt.getParentApp
-            ointmentId());}
+            if (appt.getParentAppointmentId() != null) {pstmt. setLong(6, appt.getParentAppointmentId());}
             else {pstmt.setNull(6, Types.INTEGER);}
             // The final parameter identifies the appointment to update.
             pstmt.setLong(7, appt.getId());
