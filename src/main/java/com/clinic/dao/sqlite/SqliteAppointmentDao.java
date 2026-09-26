@@ -269,4 +269,39 @@ public class SqliteAppointmentDao implements AppointmentDao {
         return list;
     }
 
+    @Override
+    public boolean update(Appointment appt) {
+
+        // We need both an appointment object and its ID.
+        if (appt == null || appt.getId() == null) {
+            return false;
+        }
+
+        // Update all editable appointment fields.
+        String sql = """
+            UPDATE appointments
+            SET patient_id = ?, doctor_id = ?, appointment_datetime = ?, reason = ?, status = ?, parent_appointment_id = ?
+            WHERE id = ?;
+            """;
+        try (Connection conn = dbConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            // Fill each SQL placeholder with the appointment's values.
+            pstmt.setLong(1, appt.getPatientId());
+            pstmt.setLong(2, appt.getDoctorId());
+            pstmt.setString(3, appt.getAppointmentDateTime().format(ISO_FORMATTER));
+            pstmt.setString(4, appt.getReason());
+            pstmt.setString(5, appt.getStatus().name());
+            // parent_appointment_id is allowed to be NULL.
+            if (appt.getParentAppointmentId() != null) {pstmt.setLong(6, appt.getParentAppointmentId());}
+            else {pstmt.setNull(6, Types.INTEGER);}
+            // The final parameter identifies the appointment to update.
+            pstmt.setLong(7, appt.getId());
+            // Return true only if exactly one appointment was updated.
+            return pstmt.executeUpdate() == 1;
+        } catch (SQLException e) {
+            throw new RuntimeException("Error updating appointment: " + appt.getId(), e);
+        }
+    }
+
+
 
