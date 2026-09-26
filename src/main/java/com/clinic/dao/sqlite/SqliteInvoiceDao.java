@@ -49,6 +49,48 @@ public class SqliteInvoiceDao implements InvoiceDao {
             // Start transaction so invoice and its items are saved together.
             conn.setAutoCommit(false);
 
+            long generatedInvoiceId;
+            try (PreparedStatement pstmt = conn.prepareStatement(insertInvoiceSql, Statement.RETURN_GENERATED_KEYS)) {
+                pstmt.setLong(1, invoice.getAppointmentId());
+                pstmt.setString(2, invoice.getInvoiceNumber());
+                pstmt.setString(3, invoice.getIssueDate().toString());
+                pstmt.setString(4, invoice.getStatus().name());
+                pstmt.executeUpdate();
+
+                try (ResultSet keys = pstmt.getGeneratedKeys()) {
+                    if (keys.next()) {
+                        generatedInvoiceId = keys.getLong(1);
+                    } else {
+                        throw new SQLException("Failed to retrieve generated invoice ID.");
+                    }
+                }
+            }
+
+            // Insert each itemized charge in Mauritian Rupees (MUR)
+            try (PreparedStatement itemStmt = conn.prepareStatement(insertItemSql)) {
+                for (InvoiceItem item : invoice.getItems()) {
+                    itemStmt.setLong(1, generatedInvoiceId);
+                    itemStmt.setString(2, item.getDescription());
+                    itemStmt.setDouble(3, item.getAmountMur());
+                    itemStmt.executeUpdate();
+                }
+            }
+
+            conn.commit(); // Transaction success: commit all atomically!
+
+            // Return reconstructed persistent entity with items
+            Invoice persisted = new Invoice(
+                    generatedInvoiceId,
+                    invoice.getAppointmentId(),
+                    invoice.getInvoiceNumber(),
+                    invoice.getIssueDate(),
+                    invoice.getStatus()
+            );
+            for (InvoiceItem item : invoice.getItems()) {
+                persisted.addItem(new InvoiceItem(item.getDescription(), item.getAmountMur()));
+            }
+            return persisted;
+
         } catch (SQLException e) {
             if (conn != null) {
                 try {
@@ -65,6 +107,7 @@ public class SqliteInvoiceDao implements InvoiceDao {
                     conn.close();
                 } catch (SQLException e) {
                     // Connection cleanup failure.
+                }
             }
         }
     }
