@@ -132,3 +132,41 @@ public class SqliteInvoiceDao implements InvoiceDao {
         }
         return Optional.empty();
     }
+
+    @Override
+    public Optional<Invoice> findByAppointmentId(Long appointmentId) {
+        if (appointmentId == null) return Optional.empty();
+        String sql = "SELECT id, appointment_id, invoice_number, issue_date, status FROM invoices WHERE appointment_id = ?;";
+        try (Connection conn = dbConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, appointmentId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return Optional.of(hydrateInvoice(conn, rs));
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Error finding invoice by appointment ID: " + appointmentId, e);
+        }
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<Invoice> findByInvoiceNumber(String invoiceNumber) {
+        if (invoiceNumber == null || invoiceNumber.isBlank()) return Optional.empty();
+        String sql = "SELECT id, appointment_id, invoice_number, issue_date, status FROM invoices WHERE invoice_number = ?;";
+        try (Connection conn = dbConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, invoiceNumber.trim());
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return Optional.of(hydrateInvoice(conn, rs));
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Error finding invoice by number: " + invoiceNumber, e);
+        }
+        return Optional.empty();
+    }
+
+
