@@ -161,4 +161,34 @@ public class SqliteAppointmentDao implements AppointmentDao {
         // Build and return a Java Appointment object from the database.
         return new Appointment(id, patientId, doctorId, dateTime, reason, status, parentId);
     }
-}
+
+    @Override
+    public List<Appointment> findByParentAppointmentId(Long parentAppointmentId) {
+        // If parentAppointmentId is null, we look for appointments
+        // that do NOT have a parent. These are the original appointments.
+        String sql = (parentAppointmentId == null)
+                ? " SELECT id, patient_id, doctor_id, appointment_datetime, reason, status, parent_appointment_id FROM appointments WHERE parent_appointment_id IS NULL ORDER BY appointment_datetime ASC; "
+                : " SELECT id, patient_id, doctor_id, appointment_datetime, reason, status, parent_appointment_id FROM appointments WHERE parent_appointment_id = ? ORDER BY appointment_datetime ASC; ";
+
+        // This list will hold all matching appointments.
+        List<Appointment> list = new ArrayList<>();
+        try (Connection conn = dbConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            // Only add the parameter when we are searching for a specific parent appointment.
+            if (parentAppointmentId != null) {
+                pstmt.setLong(1, parentAppointmentId);
+            }
+            try (ResultSet rs = pstmt.executeQuery()) {
+                // There may be multiple appointments with the same parent.
+                while (rs.next()) {
+                    list.add(mapRowToAppointment(rs));
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Error finding appointments by parent ID: " + parentAppointmentId, e);
+        }
+        return list;
+    }
+
+
