@@ -3,6 +3,7 @@ package com.clinic.model;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
+// Appointment entity representing a scheduled patient consultation with a specialist
 public class Appointment {
     private final Long id;
     private final Long patientId;
@@ -10,8 +11,10 @@ public class Appointment {
     private LocalDateTime appointmentDateTime;
     private String reason;
     private AppointmentStatus status;
-    private Long parentAppointmentId; //Nullable: references parent consultation if this is a follow-up
+    private Long parentAppointmentId;//Nullable: references parent consultation if this is a follow-up
+    private AppointmentType type;
 
+    // Full constructor including archetype classification
     public Appointment(Long id, Long patientId, Long doctorId, LocalDateTime appointmentDateTime,
                        String reason, AppointmentStatus status, Long parentAppointmentId) {
         if (patientId == null) {
@@ -35,6 +38,7 @@ public class Appointment {
         // New appointments default to SCHEDULED when no status is provided.
         this.status = (status != null) ? status : AppointmentStatus.SCHEDULED;
         this.parentAppointmentId = parentAppointmentId;
+        this.type = (type != null) ? type : AppointmentType.STANDARD_CONSULTATION;
     }
 
     // Overloaded constructor for brand-new root appointments (no parent ID)
