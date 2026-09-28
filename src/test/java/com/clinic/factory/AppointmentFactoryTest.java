@@ -37,3 +37,28 @@ public class AppointmentFactoryTest {
         assertEquals(AppointmentFactory.DEFAULT_STANDARD_REASON, appointment.getReason());
     }
 
+    @Test
+    @DisplayName("Follow-up visit should use the parent ID and FOLLOW_UP type")
+    void testCreateFollowUpVisitValid() {
+        Long parentId = 55L;
+        Appointment followUp = AppointmentFactory.createFollowUpVisit(testPatientId, testDoctorId, testDateTime, parentId);
+
+        assertNotNull(followUp);
+        assertEquals(AppointmentType.FOLLOW_UP, followUp.getType());
+        assertEquals(AppointmentStatus.SCHEDULED, followUp.getStatus());
+        // A follow-up must point to the earlier appointment it continues.
+        assertEquals(parentId, followUp.getParentAppointmentId());
+        assertTrue(followUp.isFollowUp());
+        assertEquals(AppointmentFactory.DEFAULT_FOLLOW_UP_REASON, followUp.getReason());
+    }
+
+    @Test
+    @DisplayName("Follow-up visit should reject a null parent ID")
+    void testCreateFollowUpMissingParentThrowsException() {
+        // A follow-up cannot exist without a parent appointment.
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> {
+            AppointmentFactory.createFollowUpVisit(testPatientId, testDoctorId, testDateTime, null);
+        });
+
+        assertTrue(ex.getMessage().contains("Parent appointment ID cannot be null"));
+    }
