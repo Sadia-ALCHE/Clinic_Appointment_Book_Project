@@ -62,3 +62,17 @@ public class AppointmentFactoryTest {
 
         assertTrue(ex.getMessage().contains("Parent appointment ID cannot be null"));
     }
+
+    @Test
+    @DisplayName("Emergency checkup should use CONFIRMED status and EMERGENCY type")
+    void testCreateEmergencyCheckupDefaults() {
+        Appointment emergency = AppointmentFactory.createEmergencyCheckup(testPatientId, testDoctorId, testDateTime);
+
+        assertNotNull(emergency);
+        // Emergency appointments are created as confirmed root appointments.
+        assertEquals(AppointmentType.EMERGENCY, emergency.getType());
+        assertEquals(AppointmentStatus.CONFIRMED, emergency.getStatus());
+        assertNull(emergency.getParentAppointmentId());
+        assertEquals(AppointmentFactory.DEFAULT_EMERGENCY_REASON, emergency.getReason());
+    }
+
