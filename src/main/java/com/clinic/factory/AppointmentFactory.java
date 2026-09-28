@@ -66,4 +66,25 @@ public final class AppointmentFactory {
     public static Appointment createFollowUpVisit(Long patientId, Long doctorId, LocalDateTime dateTime, Long parentAppointmentId) {
         return createFollowUpVisit(patientId, doctorId, dateTime, parentAppointmentId, DEFAULT_FOLLOW_UP_REASON);
     }
+
+    // Creates an urgent acute emergency checkup with pre-confirmed clinical status
+    public static Appointment createEmergencyCheckup(Long patientId, Long doctorId,
+                                                     LocalDateTime dateTime, String emergencyDescription) {
+        String visitReason = (emergencyDescription != null && !emergencyDescription.trim().isEmpty()) ? "EMERGENCY: " + emergencyDescription.trim() : DEFAULT_EMERGENCY_REASON;
+        return new Appointment(
+                null,
+                patientId,
+                doctorId,
+                dateTime,
+                visitReason,
+                AppointmentStatus.CONFIRMED,
+                null,
+                AppointmentType.EMERGENCY
+        );
+    }
+
+    // Convenience overload for emergency checkup with default triage description
+    public static Appointment createEmergencyCheckup(Long patientId, Long doctorId, LocalDateTime dateTime) {
+        return createEmergencyCheckup(patientId, doctorId, dateTime, DEFAULT_EMERGENCY_REASON);
+    }
 }
