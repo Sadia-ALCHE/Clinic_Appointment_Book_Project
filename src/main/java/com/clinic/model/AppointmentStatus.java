@@ -21,6 +21,7 @@ public enum AppointmentStatus {
         return this == COMPLETED || this == CANCELLED || this == NO_SHOW;
     }
 
+    // Use the huma-readable form when converted to text
     @Override
     public String toString() {
         return this.displayName;
