@@ -76,3 +76,20 @@ public class AppointmentFactoryTest {
         assertEquals(AppointmentFactory.DEFAULT_EMERGENCY_REASON, emergency.getReason());
     }
 
+    @Test
+    @DisplayName("Custom reasons should be preserved when creating appointments")
+    void testCustomReasonsPreserved() {
+        String customStandard = "Severe Migraine Consultation";
+        Appointment standard = AppointmentFactory.createStandardConsultation(testPatientId, testDoctorId, testDateTime, customStandard);
+        assertEquals(customStandard, standard.getReason());
+
+        String customFollowUp = "Wound Dressing Change After Surgery";
+        Appointment followUp = AppointmentFactory.createFollowUpVisit(testPatientId, testDoctorId, testDateTime, 12L, customFollowUp);
+        assertEquals(customFollowUp, followUp.getReason());
+
+        String customEmergency = "Acute Chest Pain Triage";
+        Appointment emergency = AppointmentFactory.createEmergencyCheckup(testPatientId, testDoctorId, testDateTime, customEmergency);
+        // Emergency reasons are intentionally prefixed by the factory.
+        assertEquals("EMERGENCY: " + customEmergency, emergency.getReason());
+    }
+}
