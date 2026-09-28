@@ -16,7 +16,7 @@ public class Appointment {
 
     // Full constructor including archetype classification
     public Appointment(Long id, Long patientId, Long doctorId, LocalDateTime appointmentDateTime,
-                       String reason, AppointmentStatus status, Long parentAppointmentId) {
+                       String reason, AppointmentStatus status, Long parentAppointmentId, AppointmentType type) {
         if (patientId == null) {
             throw new IllegalArgumentException("Patient ID cannot be null.");
         }
