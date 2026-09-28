@@ -19,4 +19,26 @@ public final class AppointmentFactory {
     private AppointmentFactory() {
         // AppointmentFactory only provides static methods.
     }
+
+    // Creates a standard consultation appointment with custom clinical reason
+    public static Appointment createStandardConsultation(Long patientId, Long doctorId,
+                                                         LocalDateTime dateTime, String reason) {
+        String visitReason = (reason != null && !reason.trim().isEmpty()) ? reason.trim() : DEFAULT_STANDARD_REASON;
+
+        return new Appointment(
+                null,
+                patientId,
+                doctorId,
+                dateTime,
+                visitReason,
+                AppointmentStatus.SCHEDULED,
+                null,
+                AppointmentType.STANDARD_CONSULTATION
+        );
+    }
+
+    // Convenience overload creating a standard consultation with default clinical reason
+    public static Appointment createStandardConsultation(Long patientId, Long doctorId, LocalDateTime dateTime) {
+        return createStandardConsultation(patientId, doctorId, dateTime, DEFAULT_STANDARD_REASON);
+    }
 }
