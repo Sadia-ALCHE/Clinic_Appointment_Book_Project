@@ -41,13 +41,20 @@ public class Appointment {
         this.type = (type != null) ? type : AppointmentType.STANDARD_CONSULTATION;
     }
 
-    // Overloaded constructor for brand-new root appointments (no parent ID)
+    // Backward-compatible 7-parameter constructor defaulting type to STANDARD_CONSULTATION
+    public Appointment(Long id, Long patientId, Long doctorId, LocalDateTime appointmentDateTime,
+                       String reason, AppointmentStatus status, Long parentAppointmentId) {
+        this(id, patientId, doctorId, appointmentDateTime, reason, status, parentAppointmentId, AppointmentType.STANDARD_CONSULTATION);
+    }
+
+    // Backward-compatible 5-parameter constructor for brand-new root appointments
     public Appointment(Long id, Long patientId, Long doctorId,
                        LocalDateTime appointmentDateTime, String reason) {
         this(id, patientId, doctorId, appointmentDateTime, reason,
-                AppointmentStatus.SCHEDULED, null);
+                AppointmentStatus.SCHEDULED, null, AppointmentType.STANDARD_CONSULTATION);
     }
 
+    // Public getters
     public Long getId() { return id; }
     public Long getPatientId() { return patientId; }
     public Long getDoctorId() { return doctorId; }
@@ -55,12 +62,14 @@ public class Appointment {
     public String getReason() { return reason; }
     public AppointmentStatus getStatus() { return status; }
     public Long getParentAppointmentId() { return parentAppointmentId; }
+    public AppointmentType getType() { return type; }
 
     // An appointment is a follow-up when it references a previous appointment.
     public boolean isFollowUp() {
         return this.parentAppointmentId != null;
     }
 
+    // Public setters
     public void setStatus(AppointmentStatus newStatus) {
         if (newStatus == null) {
             throw new IllegalArgumentException("Status cannot be null.");
@@ -88,6 +97,10 @@ public class Appointment {
             throw new IllegalArgumentException("An appointment cannot be a follow-up of itself.");
         }
         this.parentAppointmentId = parentAppointmentId;
+    }
+
+    public void setType(AppointmentType type) {
+        this.type = (type != null) ? type : AppointmentType.STANDARD_CONSULTATION;
     }
 }
 
