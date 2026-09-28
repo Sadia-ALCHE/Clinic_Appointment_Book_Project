@@ -24,7 +24,6 @@ public final class AppointmentFactory {
     public static Appointment createStandardConsultation(Long patientId, Long doctorId,
                                                          LocalDateTime dateTime, String reason) {
         String visitReason = (reason != null && !reason.trim().isEmpty()) ? reason.trim() : DEFAULT_STANDARD_REASON;
-
         return new Appointment(
                 null,
                 patientId,
@@ -40,5 +39,31 @@ public final class AppointmentFactory {
     // Convenience overload creating a standard consultation with default clinical reason
     public static Appointment createStandardConsultation(Long patientId, Long doctorId, LocalDateTime dateTime) {
         return createStandardConsultation(patientId, doctorId, dateTime, DEFAULT_STANDARD_REASON);
+    }
+
+    // Creates a follow-up appointment attached to an existing parent consultation
+    public static Appointment createFollowUpVisit(Long patientId, Long doctorId, LocalDateTime dateTime,
+                                                  Long parentAppointmentId, String reason) {
+        // Enforce mandatory parent reference invariant
+        if (parentAppointmentId == null) {
+            throw new IllegalArgumentException("Parent appointment ID cannot be null for a follow-up visit.");
+        }
+
+        String visitReason = (reason != null && !reason.trim().isEmpty()) ? reason.trim() : DEFAULT_FOLLOW_UP_REASON;
+        return new Appointment(
+                null,
+                patientId,
+                doctorId,
+                dateTime,
+                visitReason,
+                AppointmentStatus.SCHEDULED,
+                parentAppointmentId,
+                AppointmentType.FOLLOW_UP
+        );
+    }
+
+    // Convenience overload for follow-up visit with default clinical reason
+    public static Appointment createFollowUpVisit(Long patientId, Long doctorId, LocalDateTime dateTime, Long parentAppointmentId) {
+        return createFollowUpVisit(patientId, doctorId, dateTime, parentAppointmentId, DEFAULT_FOLLOW_UP_REASON);
     }
 }
