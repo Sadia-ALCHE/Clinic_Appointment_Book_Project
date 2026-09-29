@@ -50,7 +50,8 @@ public class App extends Application {
 
         // 4. Construct Concrete Views with Injected Dependencies
         PatientView patientView = new PatientView(patientDao);
-        ScheduleView scheduleView = new ScheduleView();
+        // Line 53 in App.java:
+        ScheduleView scheduleView = new ScheduleView(appointmentDao, doctorDao, patientDao, validator);
         BillingView billingView = new BillingView(billingService, patientDao, appointmentDao, doctorDao, appointmentService);
 
         // 5. Construct Sidebar

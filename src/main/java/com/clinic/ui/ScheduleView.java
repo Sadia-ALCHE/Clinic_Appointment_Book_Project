@@ -17,6 +17,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 // Doctor Timetable and Appointment Booking Screen with Real-Time Conflict Alerts
 public class ScheduleView implements View {
@@ -41,6 +42,14 @@ public class ScheduleView implements View {
     private final TextField txtReason = new TextField();
     private final VBox conflictAlertBanner = new VBox(4);
     private final Label successBanner = new Label();
+
+    // Default constructor providing backward compatibility with App.java composition root
+    public ScheduleView() {
+        this(new com.clinic.dao.sqlite.SqliteAppointmentDao(),
+                new com.clinic.dao.sqlite.SqliteDoctorDao(),
+                new com.clinic.dao.sqlite.SqlitePatientDao(),
+                new com.clinic.service.ScheduleValidator(new com.clinic.dao.sqlite.SqliteAppointmentDao()));
+    }
 
     public ScheduleView(AppointmentDao appointmentDao, DoctorDao doctorDao, PatientDao patientDao, ScheduleValidator validator) {
         this.appointmentDao = appointmentDao;
@@ -87,14 +96,14 @@ public class ScheduleView implements View {
             @Override
             protected void updateItem(Doctor doc, boolean empty) {
                 super.updateItem(doc, empty);
-                setText(empty || doc == null ? "" : doc.getFullName() + " (" + doc.getSpecialization() + ")");
+                setText(empty || doc == null ? "" : doc.getFullName() + " (" + doc.getSpecialty() + ")");
             }
         });
         cbDoctor.setButtonCell(new ListCell<>() {
             @Override
             protected void updateItem(Doctor doc, boolean empty) {
                 super.updateItem(doc, empty);
-                setText(empty || doc == null ? "Select Doctor" : doc.getFullName() + " (" + doc.getSpecialization() + ")");
+                setText(empty || doc == null ? "Select Doctor" : doc.getFullName() + " (" + doc.getSpecialty() + ")");
             }
         });
         cbDoctor.setOnAction(e -> refreshTimetable());
@@ -206,7 +215,10 @@ public class ScheduleView implements View {
 
         List<Appointment> existingAppointments = new ArrayList<>();
         try {
-            existingAppointments = appointmentDao.findByDoctorAndDate(selectedDoctor.getId(), selectedDate);
+            existingAppointments = appointmentDao.findByDate(selectedDate).stream()
+                    .filter(a -> Objects.equals(a.getDoctorId(), selectedDoctor.getId()))
+                    .filter(a -> a.getStatus() != AppointmentStatus.CANCELLED)
+                    .toList();
         } catch (Exception ex) {
             System.err.println("Error fetching doctor appointments: " + ex.getMessage());
         }
@@ -258,8 +270,8 @@ public class ScheduleView implements View {
 
     private Appointment findCoveringAppointment(List<Appointment> appts, LocalTime start, LocalTime end) {
         for (Appointment a : appts) {
-            LocalTime aStart = a.getAppointmentTime().toLocalTime();
-            LocalTime aEnd = a.getEndTime().toLocalTime();
+            LocalTime aStart = a.getAppointmentDateTime().toLocalTime();
+            LocalTime aEnd = aStart.plusMinutes(ScheduleValidator.DEFAULT_DURATION_MINUTES);
             if (aStart.isBefore(end) && start.isBefore(aEnd)) {
                 return a;
             }
@@ -270,8 +282,9 @@ public class ScheduleView implements View {
     private String resolvePatientName(Long patientId) {
         if (patientId == null) return "Patient #?";
         try {
-            Patient p = patientDao.findById(patientId);
-            return p != null ? p.getFullName() : "Patient #" + patientId;
+            return patientDao.findById(patientId)
+                    .map(Patient::getFullName)
+                    .orElse("Patient #" + patientId);
         } catch (Exception e) {
             return "Patient #" + patientId;
         }
@@ -319,48 +332,32 @@ public class ScheduleView implements View {
         LocalTime startTime = LocalTime.of(spinStartHour.getValue(), spinStartMinute.getValue());
         int durationMins = spinDuration.getValue();
         LocalDateTime startDateTime = LocalDateTime.of(date, startTime);
-        LocalDateTime endDateTime = startDateTime.plusMinutes(durationMins);
         String reason = txtReason.getText() != null && !txtReason.getText().trim().isEmpty()
                 ? txtReason.getText().trim()
                 : "Consultation";
 
-        // Construct Candidate Appointment
+        // Construct Candidate Appointment matching Appointment.java 8-parameter constructor
         Appointment candidate = new Appointment(
                 null,
                 patient.getId(),
                 doctor.getId(),
                 startDateTime,
-                endDateTime,
-                AppointmentStatus.CONFIRMED,
                 reason,
+                AppointmentStatus.CONFIRMED,
                 null,
-                type,
-                LocalDateTime.now()
+                type
         );
 
-        // Retrieve existing appointments for collision check
-        List<Appointment> doctorAppts = new ArrayList<>();
-        List<Appointment> patientAppts = new ArrayList<>();
-        try {
-            doctorAppts = appointmentDao.findByDoctorAndDate(doctor.getId(), date);
-            patientAppts = appointmentDao.findByPatient(patient.getId());
-        } catch (Exception ex) {
-            showConflictError("Failed to query existing appointments: " + ex.getMessage());
-            return;
-        }
-
         // Execute ScheduleValidator conflict engine
-        ValidationResult result = validator.validateBooking(candidate, doctorAppts, patientAppts);
+        ValidationResult result = validator.validateBooking(candidate, durationMins);
         if (!result.isValid()) {
-            for (String err : result.getErrors()) {
-                showConflictError(err);
-            }
+            showConflictError(result.getErrorMessage());
             return;
         }
 
         // Persist confirmed appointment to SQLite
         try {
-            appointmentDao.create(candidate);
+            appointmentDao.save(candidate);
             toggleBookingDrawer(false);
             refreshTimetable();
             showSuccess("Appointment confirmed for " + patient.getFullName() + " at " + startTime + ".");
