@@ -37,6 +37,13 @@ public class Patient {
                 generatePlaceholderEmail(fullName), phoneNumber, dateOfBirth, "O+");
     }
 
+    // Registration constructor accepting full name and custom email
+    public Patient(Long id, String fullName, String email, String phoneNumber, LocalDate dateOfBirth) {
+        this(id, splitFirstName(fullName), splitLastName(fullName),
+                (email != null && !email.trim().isEmpty()) ? validateEmail(email) : generatePlaceholderEmail(fullName),
+                phoneNumber, dateOfBirth, "O+");
+    }
+
     // Static helper validators following DRY principle
     public static String validateName(String name) {
         if (name == null || name.trim().isEmpty()) {
@@ -46,10 +53,20 @@ public class Patient {
     }
 
     public static String validatePhone(String phone) {
-        if (phone == null || phone.replaceAll("[^0-9]", "").length() < 8) {
-            throw new IllegalArgumentException("Phone number must contain at least 8 digits.");
+        if (phone == null) {
+            throw new IllegalArgumentException("Phone number cannot be null.");
         }
-        return phone.trim();
+        String clean = phone.trim();
+        String digits = clean.replaceAll("[^0-9]", "");
+
+        // Mauritian standard: 8 digits locally (e.g. 5842 1099), or 11 digits with country code (+230 5842 1099)
+        boolean isLocal8 = digits.length() == 8;
+        boolean isMauritianIntl = digits.length() == 11 && digits.startsWith("230");
+
+        if (!isLocal8 && !isMauritianIntl) {
+            throw new IllegalArgumentException("Invalid Mauritian phone number. Must be 8 digits (e.g. 5842 1099) or +230 followed by 8 digits.");
+        }
+        return clean;
     }
 
     public static String validateEmail(String email) {

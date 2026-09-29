@@ -188,20 +188,24 @@ public class PatientView implements View {
 
         // Validation guards using Patient static rules
         try {
-            Patient.validateName(name);
-        } catch (IllegalArgumentException ex) {
-            showError(ex.getMessage());
-            return;
-        }
-        try {
             Patient.validatePhone(phone);
         } catch (IllegalArgumentException ex) {
             showError(ex.getMessage());
             return;
         }
+
+        // Validate custom email if provided
+        if (!email.isEmpty()) {
+            try {
+                Patient.validateEmail(email);
+            } catch (IllegalArgumentException ex) {
+                showError(ex.getMessage());
+                return;
+            }
+        }
+
         try {
-            // Uses the 4-arg constructor: Patient(Long id, String fullName, String phone, LocalDate dob)
-            Patient newPatient = new Patient(null, name, phone, dpDob.getValue());
+            Patient newPatient = new Patient(null, name, email, phone, dpDob.getValue() != null ? dpDob.getValue() : LocalDate.of(1990, 1, 1));
             Patient created = patientDao.save(newPatient);
             patientList.add(created);
             toggleFormDrawer(false);
