@@ -55,23 +55,16 @@ public class ScheduleValidator {
             return ValidationResult.invalid("Appointment date and time cannot be null.");
         }
 
-
         // Validate duration bounds
         if (durationMinutes < MIN_DURATION_MINUTES || durationMinutes > MAX_DURATION_MINUTES) {
             return ValidationResult.invalid("Appointment duration must be between " +
                     MIN_DURATION_MINUTES + " and " + MAX_DURATION_MINUTES + " minutes.");
         }
 
-        // Past timestamp constraint: appointments cannot be booked in the past
-        LocalDateTime now = LocalDateTime.now(clock);
-        if (startDateTime.isBefore(now)) {
-            return ValidationResult.invalid("Cannot schedule an appointment in the past.");
-        }
-
-        // Weekend constraint: Doctor appointments can only be scheduled Monday through Friday only
+        // Weekend constraint: clinic is closed on weekends
         DayOfWeek dayOfWeek = startDateTime.getDayOfWeek();
         if (dayOfWeek == DayOfWeek.SATURDAY || dayOfWeek == DayOfWeek.SUNDAY) {
-            return ValidationResult.invalid("Doctors are not available. Appointments can only be scheduled Monday through Friday.");
+            return ValidationResult.invalid("The clinic is closed on weekends. Appointments can only be scheduled Monday through Friday.");
         }
 
         // Opening hours constraint: appointment cannot start before 08:00
@@ -85,6 +78,13 @@ public class ScheduleValidator {
         if (!endDateTime.toLocalDate().isEqual(startDateTime.toLocalDate()) || endDateTime.toLocalTime().isAfter(CLINIC_CLOSE)) {
             return ValidationResult.invalid("Appointment concludes after clinic closing time (17:00).");
         }
+
+        // Past timestamp constraint: appointments cannot be booked in the past
+        LocalDateTime now = LocalDateTime.now(clock);
+        if (startDateTime.isBefore(now)) {
+            return ValidationResult.invalid("Cannot schedule an appointment in the past.");
+        }
+
         return ValidationResult.valid();
     }
 

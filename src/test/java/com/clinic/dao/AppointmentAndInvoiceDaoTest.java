@@ -1,5 +1,7 @@
 package com.clinic.dao;
-
+import java.sql.Connection;
+import java.sql.Statement;
+import org.junit.jupiter.api.AfterEach;
 import com.clinic.dao.sqlite.SqlitePatientDao;
 import com.clinic.dao.sqlite.SqliteDoctorDao;
 import com.clinic.dao.sqlite.SqliteAppointmentDao;
@@ -41,6 +43,15 @@ public class AppointmentAndInvoiceDaoTest {
         DatabaseConnection.setDatabaseUrl(testDbUrl);
         DatabaseConnection.initializeDatabase();
 
+        // Wipe transactional tables before each test to guarantee complete test isolation
+        try (Connection conn = DatabaseConnection.getConnection();
+             Statement stmt = conn.createStatement()) {
+            stmt.executeUpdate("DELETE FROM invoice_items;");
+            stmt.executeUpdate("DELETE FROM invoices;");
+            stmt.executeUpdate("DELETE FROM appointments;");
+            stmt.executeUpdate("DELETE FROM patients;");
+        }
+
         // Create DAO objects using standard constructors
         patientDao = new SqlitePatientDao();
         doctorDao = new SqliteDoctorDao();
@@ -52,7 +63,7 @@ public class AppointmentAndInvoiceDaoTest {
                 new Patient(
                         "Zubair",
                         "Mohammad",
-                        "z.mohammad@mediche.mu",
+                        "z.mohammad" + System.nanoTime() + "@mediche.mu",
                         "+230 5789 0011",
                         LocalDate.of(1994, 6, 12),
                         "B+"
@@ -60,6 +71,11 @@ public class AppointmentAndInvoiceDaoTest {
         );
         testPatientId = patient.getId();
         testDoctorId = 1L;
+    }
+
+    @AfterEach
+    void tearDown() {
+        DatabaseConnection.resetToDefaultDatabaseUrl();
     }
 
     @Test
