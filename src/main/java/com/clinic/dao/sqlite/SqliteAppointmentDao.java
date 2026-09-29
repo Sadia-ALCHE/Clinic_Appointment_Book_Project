@@ -22,22 +22,15 @@ public class SqliteAppointmentDao implements AppointmentDao {
 
     // Default constructor for application and JavaFX composition root
     public SqliteAppointmentDao() {
-        this.dbConnection = null;
     }
-    private final DatabaseConnection dbConnection;
+
     // Keeps appointment date/time values in a consistent format
     // when storing and reading them from SQLite.
     private static final DateTimeFormatter ISO_FORMATTER =
             DateTimeFormatter.ISO_LOCAL_DATE_TIME;
-    // Receives the database connection that this DAO will use.
+
+    // Constructor accepting DatabaseConnection for backwards compatibility
     public SqliteAppointmentDao(DatabaseConnection dbConnection) {
-        // The DAO cannot work without a database connection.
-        if (dbConnection == null) {
-            throw new IllegalArgumentException(
-                    "DatabaseConnection cannot be null."
-            );
-        }
-        this.dbConnection = null;
     }
 
     @Override
@@ -52,7 +45,7 @@ public class SqliteAppointmentDao implements AppointmentDao {
         VALUES (?, ?, ?, ?, ?, ?);
         """;
 
-        try (Connection conn = dbConnection.getConnection();
+        try (Connection conn = DatabaseConnection.getConnection();
                 // Prepare the SQL statement and ask SQLite to return
                 // the ID generated for the new appointment.
                 PreparedStatement pstmt =
@@ -117,7 +110,7 @@ public class SqliteAppointmentDao implements AppointmentDao {
         // SQL query to find one appointment by its ID.
         String sql = "SELECT id, patient_id, doctor_id, appointment_datetime, reason, status, parent_appointment_id FROM appointments WHERE id = ?;";
 
-        try (Connection conn = dbConnection.getConnection();
+        try (Connection conn = DatabaseConnection.getConnection();
              // Prepare the SQL query.
              PreparedStatement pstmt = conn.prepareStatement(sql)
         ) {
@@ -175,7 +168,7 @@ public class SqliteAppointmentDao implements AppointmentDao {
 
         // This list will hold all matching appointments.
         List<Appointment> list = new ArrayList<>();
-        try (Connection conn = dbConnection.getConnection();
+        try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             // Only add the parameter when we are searching for a specific parent appointment.
@@ -217,7 +210,7 @@ public class SqliteAppointmentDao implements AppointmentDao {
         String sql = " SELECT id, patient_id, doctor_id, appointment_datetime, reason, status, parent_appointment_id FROM appointments WHERE date(appointment_datetime) = ? ORDER BY appointment_datetime ASC; ";
         List<Appointment> list = new ArrayList<>();
 
-        try (Connection conn = dbConnection.getConnection();
+        try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             // LocalDate.toString() produces YYYY-MM-DD,which matches the date format stored in the database.
@@ -241,7 +234,7 @@ public class SqliteAppointmentDao implements AppointmentDao {
         if (appointmentId == null || newStatus == null) return false;
         // Update only the status of the selected appointment.
         String sql = "UPDATE appointments SET status = ? WHERE id = ?; ";
-        try (Connection conn = dbConnection.getConnection();
+        try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             // Store the enum as text, eg. "COMPLETED".
             pstmt.setString(1, newStatus.name());
@@ -259,7 +252,7 @@ public class SqliteAppointmentDao implements AppointmentDao {
         // Get every appointment from the database.
         String sql = "SELECT id, patient_id, doctor_id, appointment_datetime, reason, status, parent_appointment_id FROM appointments ORDER BY appointment_datetime DESC; ";
         List<Appointment> list = new ArrayList<>();
-        try (Connection conn = dbConnection.getConnection();
+        try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql);
              ResultSet rs = pstmt.executeQuery()) {
             // Convert every database row into an Appointment object.
@@ -287,7 +280,7 @@ public class SqliteAppointmentDao implements AppointmentDao {
             SET patient_id = ?, doctor_id = ?, appointment_datetime = ?, reason = ?, status = ?, parent_appointment_id = ?
             WHERE id = ?;
             """;
-        try (Connection conn = dbConnection.getConnection();
+        try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             // Fill each SQL placeholder with the appointment's values.
             pstmt.setLong(1, appt.getPatientId());
@@ -312,7 +305,7 @@ public class SqliteAppointmentDao implements AppointmentDao {
         // An ID is required to know which appointment to delete.
         if (id == null) return false;
         String sql = "DELETE FROM appointments WHERE id = ?; ";
-        try (Connection conn = dbConnection.getConnection();
+        try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             // Tell SQLite which appointment to delete.
             pstmt.setLong(1, id);
@@ -326,7 +319,7 @@ public class SqliteAppointmentDao implements AppointmentDao {
     private List<Appointment> queryAppointmentList(String sql, Long idParam) {
         // Create a list to store all matching appointments.
         List<Appointment> list = new ArrayList<>();
-        try (Connection conn = dbConnection.getConnection();
+        try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             // Put the ID into the SQL query's ? placeholder.
             pstmt.setLong(1, idParam);

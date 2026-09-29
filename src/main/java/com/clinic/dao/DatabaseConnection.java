@@ -10,10 +10,14 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 public final class DatabaseConnection {
-    public static final String DEFAULT_DB_URL = "jdbc:sqlite:clinic.db";
+    // Configurable database URL supporting CLI system properties (-Dclinic.db.url) and environment variables
+    public static final String DEFAULT_DB_URL = System.getProperty(
+            "clinic.db.url",
+            System.getenv().getOrDefault("CLINIC_DB_URL", "jdbc:sqlite:clinic.db")
+    );
     private static String currentDbUrl = DEFAULT_DB_URL;
 
-    // Instantiated Database Connection with a private constructor to prevent direct instantiation of it's utility
+    // Instantiated Database Connection with a private constructor to prevent direct instantiation of its utility
     private DatabaseConnection() {
     }
 
@@ -35,8 +39,7 @@ public final class DatabaseConnection {
         currentDbUrl = url;
     }
 
-
-    // Resets the connection manager to the default disk-backed database ('jdbc:sqlite:clinic.db').
+    // Resets the connection manager to the default disk-backed database
     public static synchronized void resetToDefaultDatabaseUrl() {
         currentDbUrl = DEFAULT_DB_URL;
     }
@@ -56,17 +59,39 @@ public final class DatabaseConnection {
         return false;
     }
 
-
-     // Bootstraps the database schema by executing schema.sql from the application classpath.
-     // Idempotent: safe to run on every application startup.
+    // Bootstraps and migrates the database schema using PRAGMA user_version.
+    // Idempotent: safe to run on every application startup.
     public static synchronized void initializeDatabase() throws SQLException {
-        try (InputStream is = DatabaseConnection.class.getResourceAsStream("/schema.sql")) {
+        try (Connection conn = getConnection();
+             Statement stmt = conn.createStatement()) {
+
+            int currentVersion = 0;
+            try (var rs = stmt.executeQuery("PRAGMA user_version;")) {
+                if (rs.next()) {
+                    currentVersion = rs.getInt(1);
+                }
+            }
+
+            // Version 0 -> Initial Schema Creation
+            if (currentVersion < 1) {
+                executeSqlScript(conn, "/schema.sql");
+                stmt.execute("PRAGMA user_version = 1;");
+            }
+
+            // Future automated DDL migrations can be added here:
+            // if (currentVersion < 2) { ... stmt.execute("PRAGMA user_version = 2;"); }
+        }
+    }
+
+    // Helper method to parse and execute SQL script statements from classpath
+    private static void executeSqlScript(Connection conn, String resourcePath) throws SQLException {
+        try (InputStream is = DatabaseConnection.class.getResourceAsStream(resourcePath)) {
             if (is == null) {
-                throw new IllegalStateException("Critical Error: schema.sql resource not found on classpath!");
+                throw new IllegalStateException("Critical Error: " + resourcePath + " resource not found on classpath!");
             }
 
             StringBuilder sqlBuilder = new StringBuilder();
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(is, java.nio.charset.StandardCharsets.UTF_8))) {
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
                 String line;
                 while ((line = reader.readLine()) != null) {
                     String trimmed = line.trim();
@@ -83,11 +108,8 @@ public final class DatabaseConnection {
                 }
             }
 
-            // Split statements by semicolon
             String[] statements = sqlBuilder.toString().split(";");
-
-            try (Connection conn = getConnection();
-                 Statement stmt = conn.createStatement()) {
+            try (Statement stmt = conn.createStatement()) {
                 for (String rawSql : statements) {
                     String sql = rawSql.trim();
                     if (!sql.isEmpty()) {
@@ -96,7 +118,7 @@ public final class DatabaseConnection {
                 }
             }
         } catch (java.io.IOException e) {
-            throw new SQLException("Failed to read schema.sql from classpath: " + e.getMessage(), e);
+            throw new SQLException("Failed to read " + resourcePath + " from classpath: " + e.getMessage(), e);
         }
     }
 }

@@ -3,6 +3,7 @@ package com.clinic.ui;
 import com.clinic.dao.AppointmentDao;
 import com.clinic.dao.DoctorDao;
 import com.clinic.dao.PatientDao;
+import com.clinic.factory.AppointmentFactory;
 import com.clinic.model.*;
 import com.clinic.service.BillingService;
 import com.clinic.service.ScheduleValidator;
@@ -453,17 +454,24 @@ public class ScheduleView implements View {
             }
         }
 
-        // Construct Candidate Appointment matching Appointment.java 8-parameter constructor
-        Appointment candidate = new Appointment(
-                null,
-                patient.getId(),
-                doctor.getId(),
-                startDateTime,
-                reason,
-                AppointmentStatus.CONFIRMED,
-                parentId,
-                type
-        );
+        // Construct Candidate Appointment via AppointmentFactory to enforce domain invariants
+        Appointment candidate;
+        if (type == AppointmentType.FOLLOW_UP) {
+            if (parentId == null) {
+                showConflictError("Please select a prior consultation to link this follow-up appointment");
+                return;
+            }
+            candidate = AppointmentFactory.createFollowUpVisit(
+                    patient.getId(), doctor.getId(), startDateTime, parentId, reason);
+            candidate.setStatus(AppointmentStatus.CONFIRMED);
+        } else if (type == AppointmentType.EMERGENCY) {
+            candidate = AppointmentFactory.createEmergencyCheckup(
+                    patient.getId(), doctor.getId(), startDateTime, reason);
+        } else {
+            candidate = AppointmentFactory.createStandardConsultation(
+                    patient.getId(), doctor.getId(), startDateTime, reason);
+            candidate.setStatus(AppointmentStatus.CONFIRMED);
+        }
 
         // Execute ScheduleValidator conflict engine
         ValidationResult result = validator.validateBooking(candidate, durationMins);

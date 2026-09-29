@@ -20,17 +20,10 @@ public class SqliteInvoiceDao implements InvoiceDao {
 
     // Default constructor for application and JavaFX composition root
     public SqliteInvoiceDao() {
-        this.dbConnection = null;
     }
 
-    private final DatabaseConnection dbConnection;
-    // Creates the DAO using the provided database connection.
-
+    // Constructor accepting DatabaseConnection for backwards compatibility
     public SqliteInvoiceDao(DatabaseConnection dbConnection) {
-        if (dbConnection == null) {
-            throw new IllegalArgumentException("DatabaseConnection cannot be null.");
-        }
-        this.dbConnection = null;
     }
 
     @Override
@@ -52,7 +45,7 @@ public class SqliteInvoiceDao implements InvoiceDao {
         boolean originalAutoCommit = true;
 
         try {
-            conn = dbConnection.getConnection();
+            conn = DatabaseConnection.getConnection();
             originalAutoCommit = conn.getAutoCommit();
             // Start transaction so invoice and its items are saved together.
             conn.setAutoCommit(false);
@@ -124,7 +117,7 @@ public class SqliteInvoiceDao implements InvoiceDao {
     public Optional<Invoice> findById(Long id) {
         if (id == null) return Optional.empty();
         String sql = "SELECT id, appointment_id, invoice_number, issue_date, status FROM invoices WHERE id = ?; ";
-        try (Connection conn = dbConnection.getConnection();
+        try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, id);
             try (ResultSet rs = pstmt.executeQuery()) {
@@ -142,7 +135,7 @@ public class SqliteInvoiceDao implements InvoiceDao {
     public Optional<Invoice> findByAppointmentId(Long appointmentId) {
         if (appointmentId == null) return Optional.empty();
         String sql = "SELECT id, appointment_id, invoice_number, issue_date, status FROM invoices WHERE appointment_id = ?;";
-        try (Connection conn = dbConnection.getConnection();
+        try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, appointmentId);
             try (ResultSet rs = pstmt.executeQuery()) {
@@ -160,7 +153,7 @@ public class SqliteInvoiceDao implements InvoiceDao {
     public Optional<Invoice> findByInvoiceNumber(String invoiceNumber) {
         if (invoiceNumber == null || invoiceNumber.isBlank()) return Optional.empty();
         String sql = "SELECT id, appointment_id, invoice_number, issue_date, status FROM invoices WHERE invoice_number = ?;";
-        try (Connection conn = dbConnection.getConnection();
+        try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, invoiceNumber.trim());
             try (ResultSet rs = pstmt.executeQuery()) {
@@ -178,7 +171,7 @@ public class SqliteInvoiceDao implements InvoiceDao {
     public boolean updatePaymentStatus(Long invoiceId, PaymentStatus newStatus) {
         if (invoiceId == null || newStatus == null) return false;
         String sql = "UPDATE invoices SET status = ? WHERE id = ?;";
-        try (Connection conn = dbConnection.getConnection();
+        try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, newStatus.name());
             pstmt.setLong(2, invoiceId);
@@ -192,7 +185,7 @@ public class SqliteInvoiceDao implements InvoiceDao {
     public List<Invoice> findAll() {
         String sql = "SELECT id, appointment_id, invoice_number, issue_date, status FROM invoices ORDER BY id DESC;";
         List<Invoice> list = new ArrayList<>();
-        try (Connection conn = dbConnection.getConnection();
+        try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql);
              ResultSet rs = pstmt.executeQuery()) {
             while (rs.next()) {

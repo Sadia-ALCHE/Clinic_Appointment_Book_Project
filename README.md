@@ -89,25 +89,72 @@ If you open `schema.sql` in IntelliJ IDEA Ultimate and see a yellow banner acros
 
 **This is completely safe to ignore.** IntelliJ is simply offering to connect its own built-in database viewer tool to your database file. The actual application does not rely on IntelliJ's database tool—it manages all table creation and queries programmatically through Java code.
 
+### External Database Configuration
+The database connection is dynamically configurable without modifying source code:
+- **Default path**: `clinic.db` in current directory (`jdbc:sqlite:clinic.db`).
+- **CLI System Property override**:
+  ```powershell
+  java -Dclinic.db.url="jdbc:sqlite:C:/custom/path/clinic.db" -jar target/clinic-appointment-book-1.0.0.jar
+  ```
+- **Environment Variable override**:
+  ```powershell
+  $env:CLINIC_DB_URL="jdbc:sqlite:C:/custom/path/clinic.db"
+  ```
+- **Schema Auto-Migration**: `DatabaseConnection.java` verifies and tracks `PRAGMA user_version`. On first boot or version upgrades, missing DDL structures and initial constraints are migrated automatically.
+
 ### How to Reset the Database
 If you ever want to start completely fresh with clean sample data:
 1. Close the running application.
 2. Delete the `clinic.db` file from the project root.
-3. Re-run `Main.java`.
-4. A brand new `clinic.db` will be created automatically with the default physicians and clean tables.
+3. Re-run `Main.java` (or launch the bundled `.exe`).
+4. A brand new `clinic.db` will be created automatically with the default physicians, 5 realistic patients, today's schedule slots, and a multi-tier care chain.
 
 ---
 
-## How to Run the Tests
+## Packaging & Clean-Machine Execution (`package.bat`)
 
-The project includes unit and integration tests covering patient validation, conflict detection, care-chain recursion, database transactions, and financial auditing.
+The application produces a 100% self-contained desktop bundle with an embedded OpenJDK runtime. End users and evaluators do **not** need Java installed to run the application.
 
-- **From IntelliJ IDEA**: Right-click the `src/test/java` directory and choose **Run 'All Tests'**.
-- **From the Terminal**:
+### Automated Packaging Build
+To build the executable bundle from the terminal:
+```cmd
+package.bat
+```
+This automated build script performs two pipeline steps:
+1. Compiles and packages a fat (shaded) JAR containing JavaFX controls and the SQLite JDBC driver (`mvn clean package -DskipTests`).
+2. Invokes JDK `jpackage` to bundle the application into `target/dist/MediCareClinic/` with an embedded custom Java runtime.
+
+### Launching on a Clean Machine
+1. Navigate to:
+   ```
+   target/dist/MediCareClinic/
+   ```
+2. Double-click **`MediCareClinic.exe`** (or execute from PowerShell: `.\target\dist\MediCareClinic\MediCareClinic.exe`).
+3. The application boots immediately with its local SQLite database and pre-populated clinical records.
+
+### Verification Environment Statement
+The packaging step and clean-machine execution have been formally verified on:
+- **Operating System**: Windows 11 Education 64-bit (Version 23H2 / OS Build 22631.4169, AMD64 Architecture, 16.0 GB RAM) with no global Java runtime in system PATH.
+---
+
+## Automated Testing & Committed Reports
+
+The project includes 57 comprehensive unit and integration tests covering boundary conditions, patient validation, timetable conflicts, bounded recursion depth, cycle detection, and transactional financial rollups:
+
+- **Run Tests from Terminal**:
   ```powershell
   mvn test
   ```
-- All tests will run against isolated in-memory or dedicated test databases so your main `clinic.db` is never affected.
+- **Generate Official HTML Test Report**:
+  ```powershell
+  mvn surefire-report:report
+  ```
+- **Committed Test Reports**:
+  The official Maven Surefire audit report is committed directly with the repository source code at:
+  ```
+  docs/surefire-reports/surefire-report.html
+  ```
+  Detailed per-suite JUnit XML and plain text reports are located in `docs/surefire-reports/`. All 57 tests pass with 0 failures, 0 errors, and 0 skipped.
 
 ---
 
