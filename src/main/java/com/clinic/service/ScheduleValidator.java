@@ -176,7 +176,7 @@ public class ScheduleValidator {
             return ValidationResult.valid();
         }
 
-        // Constraint to enforece that an appointment cannot be a follow-up of itself
+        // Constraint to enforce that an appointment cannot be a follow-up of itself
         if (currentAppointmentId != null && currentAppointmentId.equals(parentAppointmentId)) {
             return ValidationResult.invalid("An appointment cannot reference itself as a follow-up.");
         }
