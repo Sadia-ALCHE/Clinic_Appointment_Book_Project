@@ -1,51 +1,234 @@
-// PatientView.java
 package com.clinic.ui;
 
+import com.clinic.dao.PatientDao;
+import com.clinic.model.Patient;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import javafx.collections.transformation.FilteredList;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Parent;
-import javafx.scene.control.Label;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.VBox;
+import javafx.scene.control.*;
+import javafx.scene.layout.*;
+import java.time.LocalDate;
+import java.util.List;
 
-// Patient Directory and Medical Records Screen Scaffold
+// Patient Directory and Medical Records Screen with Live Search
 public class PatientView implements View {
 
+    private final PatientDao patientDao;
     private final BorderPane root;
+    private final ObservableList<Patient> patientList = FXCollections.observableArrayList();
+    private final FilteredList<Patient> filteredPatients;
+    private final TableView<Patient> table = new TableView<>();
+    private final TextField searchField = new TextField();
+    private final VBox formDrawer = new VBox(12);
 
-    public PatientView() {
+    // Form input controls
+    private final TextField txtName = new TextField();
+    private final TextField txtPhone = new TextField();
+    private final TextField txtEmail = new TextField();
+    private final DatePicker dpDob = new DatePicker(LocalDate.of(1990, 1, 1));
+    private final TextArea txtNotes = new TextArea();
+    private final VBox alertBanner = new VBox(4);
+
+    public PatientView(PatientDao patientDao) {
+        this.patientDao = patientDao;
         this.root = new BorderPane();
         this.root.getStyleClass().add("view-container");
+
+        // Wrap master list in reactive FilteredList
+        this.filteredPatients = new FilteredList<>(patientList, p -> true);
+
         buildUI();
+        loadPatients();
     }
 
     private void buildUI() {
-        // Header
-        VBox header = new VBox();
-        header.getStyleClass().add("view-header");
+        // 1. Header with Title and 'Register Patient' Button
+        BorderPane headerBar = new BorderPane();
+        headerBar.getStyleClass().add("view-header");
 
+        VBox titleBox = new VBox(2);
         Label title = new Label("Patient Directory");
         title.getStyleClass().add("view-title");
-
-        Label subtitle = new Label("Manage patient registrations, contact information, and medical histories");
+        Label subtitle = new Label("Manage patient registrations, contact details, and records");
         subtitle.getStyleClass().add("view-subtitle");
+        titleBox.getChildren().addAll(title, subtitle);
+        headerBar.setLeft(titleBox);
 
-        header.getChildren().addAll(title, subtitle);
-        root.setTop(header);
+        Button btnAddPatient = new Button("+ Register Patient");
+        btnAddPatient.getStyleClass().add("btn-primary");
+        btnAddPatient.setOnAction(e -> toggleFormDrawer(true));
+        headerBar.setRight(btnAddPatient);
+        BorderPane.setAlignment(btnAddPatient, Pos.CENTER_RIGHT);
+        root.setTop(headerBar);
 
-        // Main Card Placeholder
-        VBox card = new VBox(12);
+        // 2. Main Content Card with Search Bar and TableView
+        VBox card = new VBox(14);
         card.getStyleClass().add("view-card");
 
-        Label cardTitle = new Label("Patient Records Table & Live Search");
-        cardTitle.setStyle("-fx-font-weight: bold; -fx-font-size: 15px;");
+        // Search Box
+        HBox searchBox = new HBox(10);
+        searchBox.setAlignment(Pos.CENTER_LEFT);
+        Label searchLabel = new Label("Search Patients:");
+        searchLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #475569;");
+        searchField.setPromptText("Type patient full name to filter in real time...");
+        searchField.setPrefWidth(350);
+        searchField.textProperty().addListener((obs, oldVal, newVal) -> {
+            filteredPatients.setPredicate(patient -> {
+                if (newVal == null || newVal.trim().isEmpty()) {
+                    return true;
+                }
+                return patient.getFullName().toLowerCase().contains(newVal.trim().toLowerCase());
+            });
+        });
+        searchBox.getChildren().addAll(searchLabel, searchField);
 
-        Label cardStatus = new Label("Scaffold Ready · Day 10 Implementation Target");
-        cardStatus.getStyleClass().addAll("status-badge", "badge-wip");
+        // Configure TableView Columns
+        TableColumn<Patient, String> colId = new TableColumn<>("ID");
+        colId.setCellValueFactory(d -> new SimpleStringProperty(String.valueOf(d.getValue().getId())));
+        colId.setPrefWidth(60);
 
-        Label cardDesc = new Label("Full CRUD TableView, search filtering, and patient registration drawer will be mounted here.");
-        cardDesc.setStyle("-fx-text-fill: #64748b;");
+        TableColumn<Patient, String> colName = new TableColumn<>("FULL NAME");
+        colName.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getFullName()));
+        colName.setPrefWidth(200);
 
-        card.getChildren().addAll(cardTitle, cardStatus, cardDesc);
+        TableColumn<Patient, String> colPhone = new TableColumn<>("PHONE");
+        colPhone.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getPhoneNumber()));
+        colPhone.setPrefWidth(140);
+
+        TableColumn<Patient, String> colEmail = new TableColumn<>("EMAIL");
+        colEmail.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getEmail() != null ? d.getValue().getEmail() : "-"));
+        colEmail.setPrefWidth(180);
+
+        TableColumn<Patient, String> colDob = new TableColumn<>("DATE OF BIRTH");
+        colDob.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getDateOfBirth() != null ? d.getValue().getDateOfBirth().toString() : "-"));
+        colDob.setPrefWidth(120);
+
+        table.getColumns().addAll(colId, colName, colPhone, colEmail, colDob);
+        table.setItems(filteredPatients);
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        VBox.setVgrow(table, Priority.ALWAYS);
+
+        card.getChildren().addAll(searchBox, table);
         root.setCenter(card);
+
+        // 3. Build Slide-over Registration Drawer
+        buildFormDrawer();
+    }
+
+    private void buildFormDrawer() {
+        formDrawer.getStyleClass().add("view-card");
+        formDrawer.setStyle("-fx-background-color: #ffffff; -fx-pref-width: 320px; -fx-border-color: #cbd5e1; -fx-border-width: 0 0 0 1;");
+        formDrawer.setPadding(new Insets(20));
+        formDrawer.setVisible(false);
+        formDrawer.setManaged(false);
+
+        Label drawerTitle = new Label("Register New Patient");
+        drawerTitle.setStyle("-fx-font-weight: bold; -fx-font-size: 16px; -fx-text-fill: #0f172a;");
+
+        // Inline Alert Banner
+        alertBanner.setStyle("-fx-background-color: #fee2e2; -fx-border-color: #ef4444; -fx-border-radius: 6px; -fx-padding: 8px;");
+        alertBanner.setVisible(false);
+        alertBanner.setManaged(false);
+
+        txtName.setPromptText("e.g. Marie Claire Dupont");
+        txtPhone.setPromptText("e.g. +230 5123 4567");
+        txtEmail.setPromptText("e.g. marie@dupont.mu");
+        txtNotes.setPromptText("Medical background, allergies...");
+        txtNotes.setPrefRowCount(3);
+
+        Button btnSave = new Button("Save Patient");
+        btnSave.getStyleClass().add("btn-primary");
+        btnSave.setMaxWidth(Double.MAX_VALUE);
+        btnSave.setOnAction(e -> handleSavePatient());
+
+        Button btnCancel = new Button("Cancel");
+        btnCancel.getStyleClass().add("btn-secondary");
+        btnCancel.setMaxWidth(Double.MAX_VALUE);
+        btnCancel.setOnAction(e -> toggleFormDrawer(false));
+
+        formDrawer.getChildren().addAll(
+                drawerTitle, alertBanner,
+                new Label("Full Name *"), txtName,
+                new Label("Phone Number *"), txtPhone,
+                new Label("Email Address"), txtEmail,
+                new Label("Date of Birth"), dpDob,
+                new Label("Clinical Notes"), txtNotes,
+                btnSave, btnCancel
+        );
+        root.setRight(formDrawer);
+    }
+
+    private void toggleFormDrawer(boolean show) {
+        formDrawer.setVisible(show);
+        formDrawer.setManaged(show);
+        if (show) {
+            txtName.requestFocus();
+        } else {
+            clearForm();
+        }
+    }
+
+    private void handleSavePatient() {
+        alertBanner.getChildren().clear();
+        alertBanner.setVisible(false);
+        alertBanner.setManaged(false);
+
+        String name = txtName.getText() != null ? txtName.getText().trim() : "";
+        String phone = txtPhone.getText() != null ? txtPhone.getText().trim() : "";
+        String email = txtEmail.getText() != null ? txtEmail.getText().trim() : "";
+        LocalDate dob = dpDob.getValue();
+        String notes = txtNotes.getText() != null ? txtNotes.getText().trim() : "";
+
+        // Validation guards using Patient static rules
+        if (!Patient.validateName(name)) {
+            showError("Full name must be at least 2 characters long");
+            return;
+        }
+        if (!Patient.validatePhone(phone)) {
+            showError("Phone number must contain at least 7 digits");
+            return;
+        }
+
+        try {
+            Patient newPatient = new Patient(null, name, phone, email, dob, null, notes);
+            Patient created = patientDao.create(newPatient);
+            patientList.add(created);
+            toggleFormDrawer(false);
+        } catch (Exception ex) {
+            showError("Database error: " + ex.getMessage());
+        }
+    }
+
+    private void showError(String msg) {
+        Label err = new Label(msg);
+        err.setStyle("-fx-text-fill: #991b1b; -fx-font-weight: bold; -fx-font-size: 11px;");
+        alertBanner.getChildren().add(err);
+        alertBanner.setVisible(true);
+        alertBanner.setManaged(true);
+    }
+
+    private void clearForm() {
+        txtName.clear();
+        txtPhone.clear();
+        txtEmail.clear();
+        dpDob.setValue(LocalDate.of(1990, 1, 1));
+        txtNotes.clear();
+        alertBanner.getChildren().clear();
+        alertBanner.setVisible(false);
+        alertBanner.setManaged(false);
+    }
+
+    private void loadPatients() {
+        try {
+            List<Patient> patients = patientDao.findAll();
+            patientList.setAll(patients);
+        } catch (Exception ex) {
+            System.err.println("Error loading patients: " + ex.getMessage());
+        }
     }
 
     @Override
@@ -55,6 +238,6 @@ public class PatientView implements View {
 
     @Override
     public void onShow() {
-        // Will trigger patientTable refresh on Day 10
+        loadPatients();
     }
 }
