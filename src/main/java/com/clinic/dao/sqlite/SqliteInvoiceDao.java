@@ -30,7 +30,7 @@ public class SqliteInvoiceDao implements InvoiceDao {
         if (dbConnection == null) {
             throw new IllegalArgumentException("DatabaseConnection cannot be null.");
         }
-        this.dbConnection = dbConnection;
+        this.dbConnection = null;
     }
 
     @Override

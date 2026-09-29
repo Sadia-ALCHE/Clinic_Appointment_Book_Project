@@ -29,7 +29,6 @@ public class SqliteAppointmentDao implements AppointmentDao {
     // when storing and reading them from SQLite.
     private static final DateTimeFormatter ISO_FORMATTER =
             DateTimeFormatter.ISO_LOCAL_DATE_TIME;
-
     // Receives the database connection that this DAO will use.
     public SqliteAppointmentDao(DatabaseConnection dbConnection) {
         // The DAO cannot work without a database connection.
@@ -38,7 +37,7 @@ public class SqliteAppointmentDao implements AppointmentDao {
                     "DatabaseConnection cannot be null."
             );
         }
-        this.dbConnection = dbConnection;
+        this.dbConnection = null;
     }
 
     @Override

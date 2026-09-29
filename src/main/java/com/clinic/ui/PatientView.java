@@ -33,6 +33,9 @@ public class PatientView implements View {
     private final TextArea txtNotes = new TextArea();
     private final VBox alertBanner = new VBox(4);
 
+    public PatientView() {
+        this(new com.clinic.dao.sqlite.SqlitePatientDao());
+    }
     public PatientView(PatientDao patientDao) {
         this.patientDao = patientDao;
         this.root = new BorderPane();
@@ -184,18 +187,22 @@ public class PatientView implements View {
         String notes = txtNotes.getText() != null ? txtNotes.getText().trim() : "";
 
         // Validation guards using Patient static rules
-        if (!Patient.validateName(name)) {
-            showError("Full name must be at least 2 characters long");
-            return;
-        }
-        if (!Patient.validatePhone(phone)) {
-            showError("Phone number must contain at least 7 digits");
-            return;
-        }
-
         try {
-            Patient newPatient = new Patient(null, name, phone, email, dob, null, notes);
-            Patient created = patientDao.create(newPatient);
+            Patient.validateName(name);
+        } catch (IllegalArgumentException ex) {
+            showError(ex.getMessage());
+            return;
+        }
+        try {
+            Patient.validatePhone(phone);
+        } catch (IllegalArgumentException ex) {
+            showError(ex.getMessage());
+            return;
+        }
+        try {
+            // Uses the 4-arg constructor: Patient(Long id, String fullName, String phone, LocalDate dob)
+            Patient newPatient = new Patient(null, name, phone, dpDob.getValue());
+            Patient created = patientDao.save(newPatient);
             patientList.add(created);
             toggleFormDrawer(false);
         } catch (Exception ex) {

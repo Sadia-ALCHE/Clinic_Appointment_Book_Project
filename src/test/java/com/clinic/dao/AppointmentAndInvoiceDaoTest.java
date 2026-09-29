@@ -35,17 +35,17 @@ public class AppointmentAndInvoiceDaoTest {
 
     // Sets up a fresh test database and DAO objects before each test.
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         // Use a separate database file so tests do not affect application data.
         String testDbUrl = "jdbc:sqlite:target/test_clinic_day5.db";
-        dbConnection = new DatabaseConnection(testDbUrl);
-        dbConnection.initializeSchema();
+        DatabaseConnection.setDatabaseUrl(testDbUrl);
+        DatabaseConnection.initializeDatabase();
 
-        // Create DAO objects using the same test database connection.
-        patientDao = new SqlitePatientDao(dbConnection);
-        doctorDao = new SqliteDoctorDao(dbConnection);
-        appointmentDao = new SqliteAppointmentDao(dbConnection);
-        invoiceDao = new SqliteInvoiceDao(dbConnection);
+        // Create DAO objects using standard constructors
+        patientDao = new SqlitePatientDao();
+        doctorDao = new SqliteDoctorDao();
+        appointmentDao = new SqliteAppointmentDao();
+        invoiceDao = new SqliteInvoiceDao();
 
         // Create a patient that can be reused by the tests.
         Patient patient = patientDao.save(
@@ -59,8 +59,6 @@ public class AppointmentAndInvoiceDaoTest {
                 )
         );
         testPatientId = patient.getId();
-
-        // Doctor 1 is pre-seeded by the database schema.
         testDoctorId = 1L;
     }
 
@@ -100,7 +98,7 @@ public class AppointmentAndInvoiceDaoTest {
         Appointment appt = appointmentDao.save(new Appointment(null, testPatientId, testDoctorId, visitTime, "Cardiology Checkup", AppointmentStatus.COMPLETED, null));
 
         // Create an invoice with itemized charges in Mauritian Rupees (MUR).
-        Invoice invoice = new Invoice(appt.getId(), "INV-2026-0091", LocalDate.of(2026, 9, 16), PaymentStatus.PENDING);
+        Invoice invoice = new Invoice(null, appt.getId(), "INV-2026-0091", LocalDate.of(2026, 9, 16), PaymentStatus.PENDING);
         invoice.addItem(new InvoiceItem("Specialist Consultation Fee", 1500.0)); // Dr. Sarah Mensah rate in MUR
         invoice.addItem(new InvoiceItem("Full Blood Count Diagnostic Panel", 450.0)); // MUR 450.0
 
