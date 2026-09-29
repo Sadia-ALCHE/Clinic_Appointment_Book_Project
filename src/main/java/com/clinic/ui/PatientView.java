@@ -261,12 +261,24 @@ public class PatientView implements View {
                 if (deleted) {
                     patientList.remove(patient);
                 } else {
-                    showError("Could not delete patient #" + patient.getId());
+                    showDeleteBlockedModal(patient, "Patient record #" + patient.getId() + " could not be removed from the database.");
                 }
             } catch (Exception ex) {
-                showError("Cannot delete patient: Patient has active appointments or billing records on file.");
+                showDeleteBlockedModal(patient, "Patient " + patient.getFullName() + " has active clinical appointments or billing records on file.\n\nTo preserve medical history and financial audit compliance, patients with existing appointments or invoices cannot be deleted.");
             }
         }
+    }
+
+    // Modal dialog informing user why parent patient record deletion was prevented
+    private void showDeleteBlockedModal(Patient patient, String reason) {
+        Alert alert = new Alert(Alert.AlertType.WARNING);
+        alert.setTitle("Cannot Delete Patient");
+        alert.setHeaderText("Deletion Blocked: " + patient.getFullName());
+        alert.setContentText(reason);
+        if (root.getScene() != null && !root.getScene().getStylesheets().isEmpty()) {
+            alert.getDialogPane().getStylesheets().addAll(root.getScene().getStylesheets());
+        }
+        alert.showAndWait();
     }
 
     private void showError(String msg) {
