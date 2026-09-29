@@ -21,7 +21,7 @@ public class Patient {
         this.lastName = validateName(lastName);
         this.email = validateEmail(email);
         this.phone = validatePhone(phone);
-        this.birthDate = Objects.requireNonNull(dateOfBirth, "Date of birth cannot be null.");
+        this.birthDate = validateDateOfBirth(dateOfBirth);
         this.bloodGroup = validateBloodGroup(bloodGroup);
     }
 
@@ -33,13 +33,13 @@ public class Patient {
 
     // Backward-compatible constructor for earlier code using fullName
     public Patient(Long id, String fullName, String phoneNumber, LocalDate dateOfBirth) {
-        this(id, splitFirstName(fullName), splitLastName(fullName),
+        this(id, splitFirstName(validateName(fullName)), splitLastName(validateName(fullName)),
                 generatePlaceholderEmail(fullName), phoneNumber, dateOfBirth, "O+");
     }
 
     // Registration constructor accepting full name and custom email
     public Patient(Long id, String fullName, String email, String phoneNumber, LocalDate dateOfBirth) {
-        this(id, splitFirstName(fullName), splitLastName(fullName),
+        this(id, splitFirstName(validateName(fullName)), splitLastName(validateName(fullName)),
                 (email != null && !email.trim().isEmpty()) ? validateEmail(email) : generatePlaceholderEmail(fullName),
                 phoneNumber, dateOfBirth, "O+");
     }
@@ -50,6 +50,16 @@ public class Patient {
             throw new IllegalArgumentException("Patient name cannot be empty.");
         }
         return name.trim();
+    }
+
+    public static LocalDate validateDateOfBirth(LocalDate dob) {
+        if (dob == null) {
+            throw new IllegalArgumentException("Date of birth cannot be null.");
+        }
+        if (dob.isAfter(LocalDate.now())) {
+            throw new IllegalArgumentException("Date of birth cannot be in the future.");
+        }
+        return dob;
     }
 
     public static String validatePhone(String phone) {
@@ -119,7 +129,7 @@ public class Patient {
     public void setPhone(String phone) { this.phone = validatePhone(phone); }
     public void setPhoneNumber(String phone) { this.phone = validatePhone(phone); }
     public void setDateOfBirth(LocalDate dateOfBirth) {
-        this.birthDate = Objects.requireNonNull(dateOfBirth, "Date of birth cannot be null.");
+        this.birthDate = validateDateOfBirth(dateOfBirth);
     }
     public void setBloodGroup(String bloodGroup) {
         this.bloodGroup = validateBloodGroup(bloodGroup);

@@ -30,19 +30,19 @@ public class RecursiveCareChainStressTest {
         appointmentService = new AppointmentService(appointmentDao, doctorDao);
 
         // Seed Doctor with 1,500.0 MUR consultation rate
-        doctorDao.save(new Doctor(1L, "Dr. Sarah Mensah", "General Medicine", "+230 5842 1001", "sm@medicare.mu", 1500.0));
+        doctorDao.save(new Doctor(1L, "Sarah", "Mensah", "General Medicine", 1500.0, "sm@medicare.mu", "+230 5842 1001"));
     }
 
     @Test
     @DisplayName("Recursion: Single root visit with zero follow-ups has depth 1 and single fee")
     public void shouldCalculateSingleVisitCostAccurately() {
         appointmentDao.save(new Appointment(10L, 1L, 1L, LocalDateTime.now(),
-                AppointmentStatus.COMPLETED, "Root Visit", null, AppointmentType.STANDARD_CONSULTATION));
+                "Root Visit", AppointmentStatus.COMPLETED, null, AppointmentType.STANDARD_CONSULTATION));
 
         CareChainSummary summary = appointmentService.summarizeCareChain(10L);
 
         assertEquals(1, summary.getTotalVisits());
-        assertEquals(1, summary.getMaxDepth());
+        assertEquals(1, summary.getMaxChainDepth());
         assertEquals(1500.0, summary.getTotalCostMur());
     }
 
@@ -51,20 +51,20 @@ public class RecursiveCareChainStressTest {
     public void shouldCalculateMultiVisitCareChainTotalInMur() {
         // Visit 1: Root (1,500.0 MUR)
         appointmentDao.save(new Appointment(10L, 1L, 1L, LocalDateTime.now(),
-                AppointmentStatus.COMPLETED, "Anchor Consultation", null, AppointmentType.STANDARD_CONSULTATION));
+                "Anchor Consultation", AppointmentStatus.COMPLETED, null, AppointmentType.STANDARD_CONSULTATION));
 
         // Visit 2: Follow-up child of Visit 1 (1,500.0 MUR)
         appointmentDao.save(new Appointment(20L, 1L, 1L, LocalDateTime.now().plusDays(3),
-                AppointmentStatus.CONFIRMED, "Biopsy Follow-up", 10L, AppointmentType.FOLLOW_UP));
+                "Biopsy Follow-up", AppointmentStatus.CONFIRMED, 10L, AppointmentType.FOLLOW_UP));
 
         // Visit 3: Follow-up child of Visit 2 (1,500.0 MUR)
         appointmentDao.save(new Appointment(30L, 1L, 1L, LocalDateTime.now().plusDays(7),
-                AppointmentStatus.CONFIRMED, "Discharge Review", 20L, AppointmentType.FOLLOW_UP));
+                "Discharge Review", AppointmentStatus.CONFIRMED, 20L, AppointmentType.FOLLOW_UP));
 
         CareChainSummary summary = appointmentService.summarizeCareChain(10L);
 
         assertEquals(3, summary.getTotalVisits());
-        assertEquals(3, summary.getMaxDepth());
+        assertEquals(3, summary.getMaxChainDepth());
         assertEquals(4500.0, summary.getTotalCostMur()); // 3 * 1500.0 = 4,500.0 MUR
     }
 
@@ -74,14 +74,14 @@ public class RecursiveCareChainStressTest {
         Long parentId = null;
         for (long i = 1; i <= 6; i++) {
             appointmentDao.save(new Appointment(i, 1L, 1L, LocalDateTime.now().plusDays(i),
-                    AppointmentStatus.CONFIRMED, "Step " + i, parentId, AppointmentType.FOLLOW_UP));
+                    "Step " + i, AppointmentStatus.CONFIRMED, parentId, AppointmentType.FOLLOW_UP));
             parentId = i;
         }
 
         CareChainSummary summary = appointmentService.summarizeCareChain(1L);
 
         assertEquals(6, summary.getTotalVisits());
-        assertEquals(6, summary.getMaxDepth());
+        assertEquals(6, summary.getMaxChainDepth());
         assertEquals(9000.0, summary.getTotalCostMur()); // 6 * 1500.0 = 9,000.0 MUR
     }
 
@@ -91,7 +91,7 @@ public class RecursiveCareChainStressTest {
         Long parentId = null;
         for (long i = 1; i <= 7; i++) {
             appointmentDao.save(new Appointment(i, 1L, 1L, LocalDateTime.now().plusDays(i),
-                    AppointmentStatus.CONFIRMED, "Step " + i, parentId, AppointmentType.FOLLOW_UP));
+                    "Step " + i, AppointmentStatus.CONFIRMED, parentId, AppointmentType.FOLLOW_UP));
             parentId = i;
         }
 
@@ -104,9 +104,9 @@ public class RecursiveCareChainStressTest {
     public void shouldDetectCircularParentPointersAndThrowException() {
         // Appt 1 points to parent 2, and Appt 2 points to parent 1 (Cycle)
         appointmentDao.save(new Appointment(100L, 1L, 1L, LocalDateTime.now(),
-                AppointmentStatus.CONFIRMED, "Visit A", 200L, AppointmentType.FOLLOW_UP));
+                "Visit A", AppointmentStatus.CONFIRMED, 200L, AppointmentType.FOLLOW_UP));
         appointmentDao.save(new Appointment(200L, 1L, 1L, LocalDateTime.now().plusDays(1),
-                AppointmentStatus.CONFIRMED, "Visit B", 100L, AppointmentType.FOLLOW_UP));
+                "Visit B", AppointmentStatus.CONFIRMED, 100L, AppointmentType.FOLLOW_UP));
 
         assertThrows(IllegalStateException.class, () ->
                 appointmentService.summarizeCareChain(100L));
@@ -120,9 +120,10 @@ public class RecursiveCareChainStressTest {
         @Override public Optional<Appointment> findById(Long id) { return Optional.ofNullable(store.get(id)); }
         @Override public List<Appointment> findAll() { return new ArrayList<>(store.values()); }
         @Override public boolean deleteById(Long id) { return store.remove(id) != null; }
-        @Override public List<Appointment> findByDoctorIdAndDate(Long dId, LocalDate date) { return Collections.emptyList(); }
+        @Override public boolean update(Appointment e) { store.put(e.getId(), e); return true; }
+        @Override public List<Appointment> findByDoctorId(Long dId) { return Collections.emptyList(); }
         @Override public List<Appointment> findByPatientId(Long pId) { return Collections.emptyList(); }
-        @Override public List<Appointment> findByParentId(Long parentId) {
+        @Override public List<Appointment> findByParentAppointmentId(Long parentId) {
             List<Appointment> res = new ArrayList<>();
             for (Appointment a : store.values()) {
                 if (parentId != null && parentId.equals(a.getParentAppointmentId())) {
@@ -131,6 +132,7 @@ public class RecursiveCareChainStressTest {
             }
             return res;
         }
+        @Override public List<Appointment> findByDate(LocalDate date) { return Collections.emptyList(); }
         @Override public boolean updateStatus(Long id, AppointmentStatus status) { return true; }
     }
 
@@ -140,7 +142,8 @@ public class RecursiveCareChainStressTest {
         @Override public Optional<Doctor> findById(Long id) { return Optional.ofNullable(store.get(id)); }
         @Override public List<Doctor> findAll() { return new ArrayList<>(store.values()); }
         @Override public boolean deleteById(Long id) { return store.remove(id) != null; }
+        @Override public boolean update(Doctor e) { store.put(e.getId(), e); return true; }
         @Override public List<Doctor> findBySpecialty(String s) { return Collections.emptyList(); }
-        @Override public Optional<Doctor> findByEmail(String email) { return Optional.empty(); }
+        @Override public boolean updateHourlyRate(Long id, double newRateMur) { return true; }
     }
 }

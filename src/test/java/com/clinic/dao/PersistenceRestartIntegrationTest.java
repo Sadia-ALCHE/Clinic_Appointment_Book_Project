@@ -13,7 +13,6 @@ import org.junit.jupiter.api.Test;
 import java.io.File;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -22,7 +21,6 @@ import static org.junit.jupiter.api.Assertions.*;
 public class PersistenceRestartIntegrationTest {
 
     private File tempDbFile;
-    private DatabaseConnection dbConnection;
 
     @BeforeEach
     public void setUp() throws Exception {
@@ -30,16 +28,15 @@ public class PersistenceRestartIntegrationTest {
         tempDbFile = File.createTempFile("medicare_test_", ".db");
         tempDbFile.deleteOnExit();
 
-        // Initialize SQLite connection and trigger automated schema migration
-        dbConnection = DatabaseConnection.getInstance("jdbc:sqlite:" + tempDbFile.getAbsolutePath());
-        dbConnection.initializeSchema();
+        // Configure DatabaseConnection utility to target this temporary database and bootstrap schema
+        DatabaseConnection.setDatabaseUrl("jdbc:sqlite:" + tempDbFile.getAbsolutePath());
+        DatabaseConnection.initializeDatabase();
     }
 
     @AfterEach
     public void tearDown() {
-        if (dbConnection != null) {
-            dbConnection.close();
-        }
+        // Reset connection manager back to default database and delete temp file
+        DatabaseConnection.resetToDefaultDatabaseUrl();
         if (tempDbFile != null && tempDbFile.exists()) {
             tempDbFile.delete();
         }
@@ -49,19 +46,19 @@ public class PersistenceRestartIntegrationTest {
     @DisplayName("Should persist patients, appointments, and invoices across simulated application restart")
     public void shouldPersistAllRecordsAcrossApplicationRestart() {
         // --- PHASE 1: Write records before restart ---
-        SqlitePatientDao patientDao1 = new SqlitePatientDao(dbConnection);
-        SqliteDoctorDao doctorDao1 = new SqliteDoctorDao(dbConnection);
-        SqliteAppointmentDao appointmentDao1 = new SqliteAppointmentDao(dbConnection);
-        SqliteInvoiceDao invoiceDao1 = new SqliteInvoiceDao(dbConnection);
+        SqlitePatientDao patientDao1 = new SqlitePatientDao();
+        SqliteDoctorDao doctorDao1 = new SqliteDoctorDao();
+        SqliteAppointmentDao appointmentDao1 = new SqliteAppointmentDao();
+        SqliteInvoiceDao invoiceDao1 = new SqliteInvoiceDao();
 
         Patient patient = patientDao1.save(new Patient(null, "Fatima Bello", "fatima@alche.edu.mu", "+230 5842 1099", LocalDate.of(2002, 3, 10)));
         assertNotNull(patient.getId());
 
-        Doctor doctor = doctorDao1.save(new Doctor(null, "Dr. Sarah Mensah", "General Medicine", "+230 5842 1001", "sm@medicare.mu", 1500.0));
+        Doctor doctor = doctorDao1.save(new Doctor(null, "Sarah", "Mensah", "General Medicine", 1500.0, "sm@medicare.mu", "+230 5842 1001"));
         assertNotNull(doctor.getId());
 
         Appointment appt = appointmentDao1.save(new Appointment(null, patient.getId(), doctor.getId(),
-                LocalDateTime.of(2026, 9, 18, 9, 30), AppointmentStatus.CONFIRMED, "Triage Review", null, AppointmentType.STANDARD_CONSULTATION));
+                LocalDateTime.of(2026, 9, 18, 9, 30), "Triage Review", AppointmentStatus.CONFIRMED, null, AppointmentType.STANDARD_CONSULTATION));
         assertNotNull(appt.getId());
 
         Invoice invoice = new Invoice(null, appt.getId(), "INV-2026-TEST-01", LocalDate.now(), PaymentStatus.PENDING);
@@ -77,11 +74,12 @@ public class PersistenceRestartIntegrationTest {
         appointmentDao1 = null;
         invoiceDao1 = null;
 
-        DatabaseConnection restartedConnection = DatabaseConnection.getInstance("jdbc:sqlite:" + tempDbFile.getAbsolutePath());
-        SqlitePatientDao patientDao2 = new SqlitePatientDao(restartedConnection);
-        SqliteDoctorDao doctorDao2 = new SqliteDoctorDao(restartedConnection);
-        SqliteAppointmentDao appointmentDao2 = new SqliteAppointmentDao(restartedConnection);
-        SqliteInvoiceDao invoiceDao2 = new SqliteInvoiceDao(restartedConnection);
+        // Reset and reconnect to the exact same database file
+        DatabaseConnection.setDatabaseUrl("jdbc:sqlite:" + tempDbFile.getAbsolutePath());
+        SqlitePatientDao patientDao2 = new SqlitePatientDao();
+        SqliteDoctorDao doctorDao2 = new SqliteDoctorDao();
+        SqliteAppointmentDao appointmentDao2 = new SqliteAppointmentDao();
+        SqliteInvoiceDao invoiceDao2 = new SqliteInvoiceDao();
 
         // --- PHASE 3: Read and assert data after restart ---
         Optional<Patient> retrievedPatient = patientDao2.findById(patient.getId());
@@ -91,7 +89,7 @@ public class PersistenceRestartIntegrationTest {
 
         Optional<Doctor> retrievedDoctor = doctorDao2.findById(doctor.getId());
         assertTrue(retrievedDoctor.isPresent());
-        assertEquals("Dr. Sarah Mensah", retrievedDoctor.get().getFullName());
+        assertEquals("Sarah Mensah", retrievedDoctor.get().getFullName());
         assertEquals(1500.0, retrievedDoctor.get().getHourlyRate());
 
         Optional<Appointment> retrievedAppt = appointmentDao2.findById(appt.getId());
@@ -102,7 +100,7 @@ public class PersistenceRestartIntegrationTest {
         Optional<Invoice> retrievedInvoice = invoiceDao2.findById(savedInvoice.getId());
         assertTrue(retrievedInvoice.isPresent());
         assertEquals("INV-2026-TEST-01", retrievedInvoice.get().getInvoiceNumber());
-        assertEquals(2700.0, retrievedInvoice.get().calculateTotalMur()); // 1500 + 1200
+        assertEquals(2700.0, retrievedInvoice.get().calculateTotalMur()); // 1500 + 1200 MUR
         assertEquals(2, retrievedInvoice.get().getItems().size());
     }
 }
