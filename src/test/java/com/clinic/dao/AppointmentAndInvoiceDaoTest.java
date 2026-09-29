@@ -1,6 +1,8 @@
 package com.clinic.dao;
+
 import java.sql.Connection;
 import java.sql.Statement;
+
 import org.junit.jupiter.api.AfterEach;
 import com.clinic.dao.sqlite.SqlitePatientDao;
 import com.clinic.dao.sqlite.SqliteDoctorDao;
@@ -38,37 +40,31 @@ public class AppointmentAndInvoiceDaoTest {
     // Sets up a fresh test database and DAO objects before each test.
     @BeforeEach
     void setUp() throws Exception {
-        // Use a separate database file so tests do not affect application data.
+        // 1. Delete old test database file if it exists to ensure a clean slate
+        java.nio.file.Files.deleteIfExists(java.nio.file.Path.of("target/test_clinic_day5.db"));
+
+        // 2. Set test database URL and bootstrap schema
         String testDbUrl = "jdbc:sqlite:target/test_clinic_day5.db";
         DatabaseConnection.setDatabaseUrl(testDbUrl);
         DatabaseConnection.initializeDatabase();
 
-        // Wipe transactional tables before each test to guarantee complete test isolation
-        try (Connection conn = DatabaseConnection.getConnection();
-             Statement stmt = conn.createStatement()) {
+        // 3. Wipe transactional tables in proper FK order (break self-referencing parent links first!)
+        try (Connection conn = DatabaseConnection.getConnection(); Statement stmt = conn.createStatement()) {
             stmt.executeUpdate("DELETE FROM invoice_items;");
             stmt.executeUpdate("DELETE FROM invoices;");
+            stmt.executeUpdate("UPDATE appointments SET parent_appointment_id = NULL;"); // Breaks self-reference!
             stmt.executeUpdate("DELETE FROM appointments;");
             stmt.executeUpdate("DELETE FROM patients;");
         }
 
-        // Create DAO objects using standard constructors
+        // 4. Create DAO objects using standard constructors
         patientDao = new SqlitePatientDao();
         doctorDao = new SqliteDoctorDao();
         appointmentDao = new SqliteAppointmentDao();
         invoiceDao = new SqliteInvoiceDao();
 
-        // Create a patient that can be reused by the tests.
-        Patient patient = patientDao.save(
-                new Patient(
-                        "Zubair",
-                        "Mohammad",
-                        "z.mohammad" + System.nanoTime() + "@mediche.mu",
-                        "+230 5789 0011",
-                        LocalDate.of(1994, 6, 12),
-                        "B+"
-                )
-        );
+        // 5. Create a fresh test patient
+        Patient patient = patientDao.save(new Patient("Zubair", "Mohammad", "z.mohammad" + System.nanoTime() + "@mediche.mu", "+230 5789 0011", LocalDate.of(1994, 6, 12), "B+"));
         testPatientId = patient.getId();
         testDoctorId = 1L;
     }
@@ -81,15 +77,11 @@ public class AppointmentAndInvoiceDaoTest {
     @Test
     @DisplayName("Verify root appointment and follow-up appointment tree persistence")
     void testFollowUpAppointmentTree() {
-        LocalDateTime visitTime =
-                LocalDateTime.of(2026, 9, 15, 9, 30);
+        LocalDateTime visitTime = LocalDateTime.of(2026, 9, 15, 9, 30);
 
         // Create the root appointment with no parent appointment.
         Appointment rootAppt = appointmentDao.save(new Appointment(null, testPatientId, testDoctorId, visitTime, "Initial Fever Consultation", AppointmentStatus.SCHEDULED, null));
-        assertNotNull(
-                rootAppt.getId(),
-                "Root appointment must receive a generated ID"
-        );
+        assertNotNull(rootAppt.getId(), "Root appointment must receive a generated ID");
         assertFalse(rootAppt.isFollowUp(), "Root visit must have parentAppointmentId == null");
 
         // Create a follow-up appointment linked to the root appointment.
@@ -108,8 +100,7 @@ public class AppointmentAndInvoiceDaoTest {
     @Test
     @DisplayName("Verify master-detail invoice creation and total calculation in Mauritian Rupees (MUR)")
     void testSaveAndHydrateInvoiceInMur() {
-        LocalDateTime visitTime =
-                LocalDateTime.of(2026, 9, 16, 11, 0);
+        LocalDateTime visitTime = LocalDateTime.of(2026, 9, 16, 11, 0);
         // Create a completed appointment that will be linked to the invoice.
         Appointment appt = appointmentDao.save(new Appointment(null, testPatientId, testDoctorId, visitTime, "Cardiology Checkup", AppointmentStatus.COMPLETED, null));
 

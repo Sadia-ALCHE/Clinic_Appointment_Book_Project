@@ -17,6 +17,14 @@ public class ScheduleView implements View {
         buildUI();
     }
 
+    // Transitional constructor allowing App.java to inject dependencies before Day 10 is merged
+    public ScheduleView(com.clinic.dao.AppointmentDao appointmentDao,
+                        com.clinic.dao.DoctorDao doctorDao,
+                        com.clinic.dao.PatientDao patientDao,
+                        com.clinic.service.ScheduleValidator validator) {
+        this();
+    }
+
     private void buildUI() {
         VBox header = new VBox();
         header.getStyleClass().add("view-header");

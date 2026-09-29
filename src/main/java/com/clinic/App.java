@@ -1,13 +1,24 @@
-// App.java
 package com.clinic;
 
+import com.clinic.dao.sqlite.SqliteAppointmentDao;
+import com.clinic.dao.sqlite.SqliteDoctorDao;
+import com.clinic.dao.sqlite.SqliteInvoiceDao;
+import com.clinic.dao.sqlite.SqlitePatientDao;
+import com.clinic.model.*;
+import com.clinic.service.AppointmentService;
+import com.clinic.service.BillingService;
+import com.clinic.service.ScheduleValidator;
 import com.clinic.ui.*;
 import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.scene.layout.BorderPane;
 import javafx.stage.Stage;
 
-// JavaFX Desktop Application Composition Root
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+
+// JavaFX Desktop Application Composition Root with Real SQLite Persistence
 public class App extends Application {
 
     public static final String APP_TITLE = "MediCare Clinic Appointment Book · ALCHE Mauritius";
@@ -18,34 +29,44 @@ public class App extends Application {
 
     @Override
     public void start(Stage primaryStage) {
-        // 1. Root Layout Shell
+        // 1. Initialize SQLite DAOs and Business Services
+        SqlitePatientDao patientDao = new SqlitePatientDao();
+        SqliteDoctorDao doctorDao = new SqliteDoctorDao();
+        SqliteAppointmentDao appointmentDao = new SqliteAppointmentDao();
+        SqliteInvoiceDao invoiceDao = new SqliteInvoiceDao();
+
+        ScheduleValidator validator = new ScheduleValidator(appointmentDao);
+        AppointmentService appointmentService = new AppointmentService(appointmentDao, doctorDao);
+        BillingService billingService = new BillingService(invoiceDao, appointmentDao, doctorDao, patientDao, appointmentService);
+
+        // 2. Ensure Initial Mauritian Physician Test Records & Invoices Exist
+        seedInitialDoctorsIfEmpty(doctorDao);
+        seedInitialInvoicesIfEmpty(billingService, appointmentDao, patientDao, doctorDao, invoiceDao);
+
+        // 3. Root Layout Shell & Navigation Coordinator
         BorderPane root = new BorderPane();
         root.getStyleClass().add("app-shell");
-
-        // 2. Navigation Coordinator
         NavigationManager navManager = new NavigationManager(root);
 
-        // 3. Construct Views
-        PatientView patientView = new PatientView();
+        // 4. Construct Concrete Views with Injected Dependencies
+        PatientView patientView = new PatientView(patientDao);
         ScheduleView scheduleView = new ScheduleView();
-        BillingView billingView = new BillingView();
+        BillingView billingView = new BillingView(billingService, patientDao, appointmentDao, doctorDao, appointmentService);
 
-        // 4. Construct Sidebar
+        // 5. Construct Sidebar
         SidebarView sidebar = new SidebarView();
         root.setLeft(sidebar.getRoot());
 
-        // 5. Register Views with Navigation Manager
+        // 6. Register Views with Navigation Manager
         navManager.registerView(NavigationManager.VIEW_PATIENTS, patientView, sidebar.getBtnPatients());
         navManager.registerView(NavigationManager.VIEW_SCHEDULE, scheduleView, sidebar.getBtnSchedule());
-        navManager.registerView(NavigationManager.VIEW_BILLING,  billingView,  sidebar.getBtnBilling());
+        navManager.registerView(NavigationManager.VIEW_BILLING, billingView, sidebar.getBtnBilling());
 
-        // 6. Set Default View to Patients
+        // 7. Activate Default View
         navManager.showPatients();
 
-        // 7. Construct Primary Scene
+        // 8. Construct Primary Scene with CSS Stylesheet
         Scene scene = new Scene(root, DEFAULT_WIDTH, DEFAULT_HEIGHT);
-
-        // 8. Attach Clinical Stylesheet
         String cssPath = getClass().getResource("/style.css") != null
                 ? getClass().getResource("/style.css").toExternalForm()
                 : null;
@@ -53,12 +74,72 @@ public class App extends Application {
             scene.getStylesheets().add(cssPath);
         }
 
-        // 9. Configure Stage Window Properties
+        // 9. Configure Stage Window Bounds & Show
         primaryStage.setTitle(APP_TITLE);
         primaryStage.setMinWidth(MIN_WIDTH);
         primaryStage.setMinHeight(MIN_HEIGHT);
         primaryStage.setScene(scene);
         primaryStage.show();
+    }
+
+    private void seedInitialDoctorsIfEmpty(SqliteDoctorDao doctorDao) {
+        List<Doctor> existingDoctors = doctorDao.findAll();
+        if (existingDoctors.isEmpty()) {
+            doctorDao.save(new Doctor(null, "Sarah", "Mensah", "General Practice", 1500.0, "s.mensah@medicare.mu", "+230 5842 1001"));
+            doctorDao.save(new Doctor(null, "Jean-Luc", "Pierre", "Cardiology", 2500.0, "jl.pierre@medicare.mu", "+230 5842 1002"));
+            doctorDao.save(new Doctor(null, "Amina", "Patel", "Dermatology", 1800.0, "a.patel@medicare.mu", "+230 5842 1003"));
+        }
+    }
+
+    private void seedInitialInvoicesIfEmpty(BillingService billingService, SqliteAppointmentDao appointmentDao,
+                                            SqlitePatientDao patientDao, SqliteDoctorDao doctorDao,
+                                            SqliteInvoiceDao invoiceDao) {
+        if (!invoiceDao.findAll().isEmpty()) {
+            return;
+        }
+
+        // Ensure at least one test patient exists
+        List<Patient> patients = patientDao.findAll();
+        Patient testPatient;
+        if (patients.isEmpty()) {
+            testPatient = patientDao.save(new Patient(null, "Adebayo", "Ogunlesi", "adebayo@alche.edu.mu", "+230 5842 1099", LocalDate.of(2003, 5, 14), "O+"));
+        } else {
+            testPatient = patients.get(0);
+        }
+
+        List<Doctor> doctors = doctorDao.findAll();
+        Doctor doc = doctors.isEmpty()
+                ? doctorDao.save(new Doctor(null, "Sarah", "Mensah", "General Practice", 1500.0, "s.mensah@medicare.mu", "+230 5842 1001"))
+                : doctors.get(0);
+
+        // Seed Root Consultation Appointment
+        Appointment anchorAppt = appointmentDao.save(new Appointment(
+                null, testPatient.getId(), doc.getId(),
+                LocalDateTime.of(2026, 9, 17, 9, 0),
+                "Initial Clinical Triage",
+                AppointmentStatus.COMPLETED,
+                null,
+                AppointmentType.STANDARD_CONSULTATION
+        ));
+        // Generate Invoice with consultation fee + diagnostic item
+        Invoice inv1 = billingService.generateInvoiceForAppointment(anchorAppt.getId());
+        inv1.addItem(new InvoiceItem(null, inv1.getId(), "Blood Glucose Panel (Campus Lab)", 1200.0));
+        inv1.addItem(new InvoiceItem(null, inv1.getId(), "Resting ECG Diagnostic", 1150.0));
+        inv1.addItem(new InvoiceItem(null, inv1.getId(), "Sterile Wound Dressing", 850.0));
+        // Seed Follow-up Appointment in Care Chain
+        Appointment followUpAppt = appointmentDao.save(new Appointment(
+                null, testPatient.getId(), doc.getId(),
+                LocalDateTime.of(2026, 9, 17, 14, 0),
+                "Follow-Up Suture Review",
+                AppointmentStatus.CONFIRMED,
+                anchorAppt.getId(),
+                AppointmentType.FOLLOW_UP
+        ));
+
+        Invoice inv2 = billingService.generateInvoiceForAppointment(followUpAppt.getId());
+
+        // Settle first invoice to demonstrate PAID status
+        billingService.settlePayment(inv1.getId(), PaymentMethod.MCB_JUICE, "JUICE-58421099-01");
     }
 
     public static void main(String[] args) {
