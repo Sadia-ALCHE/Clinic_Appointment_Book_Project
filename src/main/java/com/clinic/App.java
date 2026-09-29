@@ -1,5 +1,6 @@
 package com.clinic;
 
+import com.clinic.dao.DatabaseConnection;
 import com.clinic.dao.sqlite.SqliteAppointmentDao;
 import com.clinic.dao.sqlite.SqliteDoctorDao;
 import com.clinic.dao.sqlite.SqliteInvoiceDao;
@@ -12,6 +13,7 @@ import com.clinic.ui.*;
 import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.text.Font;
 import javafx.stage.Stage;
 
 import java.time.LocalDate;
@@ -29,6 +31,16 @@ public class App extends Application {
 
     @Override
     public void start(Stage primaryStage) {
+        // Preload Poppins custom typography
+        loadCustomFonts();
+
+        // Bootstrap database schema if not already present
+        try {
+            DatabaseConnection.initializeDatabase();
+        } catch (Exception e) {
+            System.err.println("Database initialization note: " + e.getMessage());
+        }
+
         // 1. Initialize SQLite DAOs and Business Services
         SqlitePatientDao patientDao = new SqlitePatientDao();
         SqliteDoctorDao doctorDao = new SqliteDoctorDao();
@@ -50,8 +62,7 @@ public class App extends Application {
 
         // 4. Construct Concrete Views with Injected Dependencies
         PatientView patientView = new PatientView(patientDao);
-        // Line 53 in App.java:
-        ScheduleView scheduleView = new ScheduleView(appointmentDao, doctorDao, patientDao, validator);
+        ScheduleView scheduleView = new ScheduleView(appointmentDao, doctorDao, patientDao, validator, billingService);
         BillingView billingView = new BillingView(billingService, patientDao, appointmentDao, doctorDao, appointmentService);
 
         // 5. Construct Sidebar
@@ -141,6 +152,24 @@ public class App extends Application {
 
         // Settle first invoice to demonstrate PAID status
         billingService.settlePayment(inv1.getId(), PaymentMethod.MCB_JUICE, "JUICE-58421099-01");
+    }
+
+    private void loadCustomFonts() {
+        String[] fontFiles = {
+                "/fonts/Poppins-Regular.ttf",
+                "/fonts/Poppins-Medium.ttf",
+                "/fonts/Poppins-SemiBold.ttf",
+                "/fonts/Poppins-Bold.ttf"
+        };
+        for (String file : fontFiles) {
+            try (var is = getClass().getResourceAsStream(file)) {
+                if (is != null) {
+                    Font.loadFont(is, 13);
+                }
+            } catch (Exception e) {
+                System.err.println("Note: Could not preload font " + file + ": " + e.getMessage());
+            }
+        }
     }
 
     public static void main(String[] args) {

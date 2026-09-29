@@ -44,6 +44,13 @@ public class Patient {
                 phoneNumber, dateOfBirth, "O+");
     }
 
+    // Registration constructor accepting custom blood group
+    public Patient(Long id, String fullName, String email, String phoneNumber, LocalDate dateOfBirth, String bloodGroup) {
+        this(id, splitFirstName(validateName(fullName)), splitLastName(validateName(fullName)),
+                (email != null && !email.trim().isEmpty()) ? validateEmail(email) : generatePlaceholderEmail(fullName),
+                phoneNumber, dateOfBirth, (bloodGroup != null && !bloodGroup.trim().isEmpty()) ? bloodGroup : "O+");
+    }
+
     // Static helper validators following DRY principle
     public static String validateName(String name) {
         if (name == null || name.trim().isEmpty()) {

@@ -45,7 +45,7 @@ public class PaymentDialog {
         Label titleLabel = new Label("Settle Invoice Payment");
         titleLabel.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #0f172a;");
 
-        Label subtitleLabel = new Label("Select settlement channel and verify financial confirmation details.");
+        Label subtitleLabel = new Label("Choose payment method and enter payment details.");
         subtitleLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #64748b;");
 
         // Financial Summary Box
@@ -61,7 +61,7 @@ public class PaymentDialog {
 
         double totalMur = invoice.calculateTotalMur();
         Label totalLbl = new Label(String.format("Total Payable: MUR %,.2f", totalMur));
-        totalLbl.setStyle("-fx-font-size: 15px; -fx-font-weight: bold; -fx-text-fill: #0284c7;");
+        totalLbl.setStyle("-fx-font-size: 15px; -fx-font-weight: bold; -fx-text-fill: #059669;");
 
         summaryBox.getChildren().addAll(invNumLbl, patientLbl, totalLbl);
 
@@ -149,6 +149,8 @@ public class PaymentDialog {
         root.getChildren().addAll(titleLabel, subtitleLabel, summaryBox, grid, changeNoticeLbl, buttonBox);
 
         Scene scene = new Scene(root);
+        String css = getClass().getResource("/style.css") != null ? getClass().getResource("/style.css").toExternalForm() : null;
+        if (css != null) scene.getStylesheets().add(css);
         dialogStage.setScene(scene);
     }
 

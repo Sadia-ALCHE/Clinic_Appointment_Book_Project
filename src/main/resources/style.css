@@ -4,10 +4,15 @@
 
 /* Global Root Styles & Typography */
 .root {
-    -fx-font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    -fx-font-family: 'Poppins', 'Segoe UI', system-ui, -apple-system, sans-serif;
     -fx-font-size: 13px;
     -fx-background-color: #f8fafc;
     -fx-text-base-color: #0f172a;
+}
+
+/* Ensure controls explicitly inherit Poppins typography */
+.button, .label, .text-field, .combo-box, .table-view, .table-cell, .tab, .date-picker, .spinner {
+    -fx-font-family: 'Poppins', 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 
 /* Top Application Shell Container */
@@ -146,30 +151,30 @@
     -fx-background-color: #f1f5f9;
 }
 
-/* Status Badges */
+/* Status Badges - Clean Typography without Candy-Color Background Pills */
 .status-badge {
-    -fx-padding: 4px 10px;
-    -fx-background-radius: 6px;
+    -fx-padding: 2px 4px;
     -fx-font-size: 11px;
     -fx-font-weight: bold;
+    -fx-background-color: transparent;
 }
 
 .badge-confirmed {
-    -fx-background-color: #d1fae5;
-    -fx-text-fill: #065f46;
+    -fx-background-color: transparent;
+    -fx-text-fill: #059669;
 }
 
 .badge-pending {
-    -fx-background-color: #fef3c7;
-    -fx-text-fill: #92400e;
+    -fx-background-color: transparent;
+    -fx-text-fill: #d97706;
 }
 
 .badge-cancelled {
-    -fx-background-color: #fee2e2;
-    -fx-text-fill: #991b1b;
+    -fx-background-color: transparent;
+    -fx-text-fill: #dc2626;
 }
 
 .badge-wip {
-    -fx-background-color: #e0f2fe;
-    -fx-text-fill: #0369a1;
+    -fx-background-color: transparent;
+    -fx-text-fill: #0284c7;
 }

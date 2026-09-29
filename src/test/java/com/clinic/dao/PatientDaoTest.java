@@ -2,10 +2,13 @@ package com.clinic.dao;
 
 import com.clinic.dao.sqlite.SqlitePatientDao;
 import com.clinic.model.Patient;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.List;
@@ -20,11 +23,18 @@ public class PatientDaoTest {
     // Interface reference for polymorphic testing
     private PatientDao patientDao;
 
-    // Initializes database schema once before running the test suite
-    // Declares throws SQLException to handle database setup errors
+    // Initializes isolated test database schema once before running the test suite
     @BeforeAll
-    static void initDatabase() throws SQLException {
+    static void initDatabase() throws Exception {
+        Files.deleteIfExists(Path.of("target/test_patient.db"));
+        DatabaseConnection.setDatabaseUrl("jdbc:sqlite:target/test_patient.db");
         DatabaseConnection.initializeDatabase();
+    }
+
+    // Resets database connection back to default application database after tests complete
+    @AfterAll
+    static void tearDown() {
+        DatabaseConnection.resetToDefaultDatabaseUrl();
     }
 
     // Instantiates a fresh DAO implementation before each test executes

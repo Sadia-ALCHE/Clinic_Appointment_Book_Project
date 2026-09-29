@@ -70,6 +70,8 @@ public class ReceiptModal {
         root.getChildren().addAll(title, receiptArea, buttonBox);
 
         Scene scene = new Scene(root);
+        String css = getClass().getResource("/style.css") != null ? getClass().getResource("/style.css").toExternalForm() : null;
+        if (css != null) scene.getStylesheets().add(css);
         stage.setScene(scene);
     }
 
