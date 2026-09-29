@@ -33,24 +33,8 @@ public class SidebarView {
         this.btnSchedule = createNavButton("Doctor Timetable");
         this.btnBilling  = createNavButton("Billing & Invoices");
 
-        // 3. Elastic Spacer (pushes footer to bottom)
-        Region spacer = new Region();
-        VBox.setVgrow(spacer, Priority.ALWAYS);
-
-        // 4. Session & Team Attribution Footer
-        VBox footerBox = new VBox(3);
-        footerBox.getStyleClass().add("sidebar-footer-box");
-
-        Label statusLabel = new Label("● System Active · SQLite");
-        statusLabel.getStyleClass().add("sidebar-footer-status");
-
-        Label teamLabel = new Label("Sadia (UI) & Hanif (Core)");
-        teamLabel.getStyleClass().add("sidebar-footer-text");
-
-        footerBox.getChildren().addAll(statusLabel, teamLabel);
-
         // Assemble Sidebar Hierarchy
-        this.root.getChildren().addAll(brandBox, btnPatients, btnSchedule, btnBilling, spacer, footerBox);
+        this.root.getChildren().addAll(brandBox, btnPatients, btnSchedule, btnBilling);
     }
 
     private Button createNavButton(String labelText) {
