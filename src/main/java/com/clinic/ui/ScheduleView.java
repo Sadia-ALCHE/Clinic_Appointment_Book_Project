@@ -4,20 +4,24 @@ import com.clinic.dao.AppointmentDao;
 import com.clinic.dao.DoctorDao;
 import com.clinic.dao.PatientDao;
 import com.clinic.model.*;
+import com.clinic.service.BillingService;
 import com.clinic.service.ScheduleValidator;
 import com.clinic.service.ValidationResult;
+import javafx.animation.PauseTransition;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Parent;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
+import javafx.util.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 // Doctor Timetable and Appointment Booking Screen with Real-Time Conflict Alerts
 public class ScheduleView implements View {
@@ -26,6 +30,7 @@ public class ScheduleView implements View {
     private final DoctorDao doctorDao;
     private final PatientDao patientDao;
     private final ScheduleValidator validator;
+    private final BillingService billingService;
 
     private final BorderPane root;
     private final ComboBox<Doctor> cbDoctor = new ComboBox<>();
@@ -36,26 +41,35 @@ public class ScheduleView implements View {
     // Booking Drawer Form Controls
     private final ComboBox<Patient> cbPatient = new ComboBox<>();
     private final ComboBox<AppointmentType> cbType = new ComboBox<>();
+    private final ComboBox<Appointment> cbParentAppointment = new ComboBox<>();
+    private final VBox followUpContainer = new VBox(4);
     private final Spinner<Integer> spinStartHour = new Spinner<>(8, 16, 9);
     private final Spinner<Integer> spinStartMinute = new Spinner<>(0, 45, 0, 15);
     private final Spinner<Integer> spinDuration = new Spinner<>(15, 120, 30, 15);
     private final TextField txtReason = new TextField();
     private final VBox conflictAlertBanner = new VBox(4);
     private final Label successBanner = new Label();
+    private final PauseTransition successTimer = new PauseTransition(Duration.seconds(4));
 
-    // Default constructor providing backward compatibility with App.java composition root
+    // Default constructor providing backward compatibility with composition root
     public ScheduleView() {
         this(new com.clinic.dao.sqlite.SqliteAppointmentDao(),
                 new com.clinic.dao.sqlite.SqliteDoctorDao(),
                 new com.clinic.dao.sqlite.SqlitePatientDao(),
-                new com.clinic.service.ScheduleValidator(new com.clinic.dao.sqlite.SqliteAppointmentDao()));
+                new com.clinic.service.ScheduleValidator(new com.clinic.dao.sqlite.SqliteAppointmentDao()),
+                null);
     }
 
     public ScheduleView(AppointmentDao appointmentDao, DoctorDao doctorDao, PatientDao patientDao, ScheduleValidator validator) {
+        this(appointmentDao, doctorDao, patientDao, validator, null);
+    }
+
+    public ScheduleView(AppointmentDao appointmentDao, DoctorDao doctorDao, PatientDao patientDao, ScheduleValidator validator, BillingService billingService) {
         this.appointmentDao = appointmentDao;
         this.doctorDao = doctorDao;
         this.patientDao = patientDao;
         this.validator = validator;
+        this.billingService = billingService;
         this.root = new BorderPane();
         this.root.getStyleClass().add("view-container");
 
@@ -73,7 +87,7 @@ public class ScheduleView implements View {
         VBox titleBox = new VBox(2);
         Label title = new Label("Doctor Timetable & Appointments");
         title.getStyleClass().add("view-title");
-        Label subtitle = new Label("Real-time schedule matrix, appointment booking, and collision prevention");
+        Label subtitle = new Label("View physician timetables, book appointments, and prevent double-booking.");
         subtitle.getStyleClass().add("view-subtitle");
         titleBox.getChildren().addAll(title, subtitle);
         titleRow.setLeft(titleBox);
@@ -120,7 +134,7 @@ public class ScheduleView implements View {
         VBox centerCard = new VBox(12);
         centerCard.getStyleClass().add("view-card");
 
-        successBanner.setStyle("-fx-background-color: #d1fae5; -fx-text-fill: #065f46; -fx-padding: 8px 12px; -fx-background-radius: 6px; -fx-font-weight: bold;");
+        successBanner.setStyle("-fx-background-color: transparent; -fx-text-fill: #059669; -fx-padding: 4px 0; -fx-font-size: 13px; -fx-font-weight: bold;");
         successBanner.setVisible(false);
         successBanner.setManaged(false);
 
@@ -147,7 +161,7 @@ public class ScheduleView implements View {
         drawerTitle.setStyle("-fx-font-weight: bold; -fx-font-size: 16px; -fx-text-fill: #0f172a;");
 
         // Real-Time Inline Conflict Alert Banner
-        conflictAlertBanner.setStyle("-fx-background-color: #fee2e2; -fx-border-color: #ef4444; -fx-border-radius: 6px; -fx-padding: 8px;");
+        conflictAlertBanner.setStyle("-fx-background-color: transparent; -fx-padding: 4px 0;");
         conflictAlertBanner.setVisible(false);
         conflictAlertBanner.setManaged(false);
 
@@ -173,6 +187,40 @@ public class ScheduleView implements View {
         cbType.setValue(AppointmentType.STANDARD_CONSULTATION);
         cbType.setMaxWidth(Double.MAX_VALUE);
 
+        // Follow-Up Linking ComboBox
+        cbParentAppointment.setMaxWidth(Double.MAX_VALUE);
+        cbParentAppointment.setCellFactory(lv -> new ListCell<>() {
+            @Override
+            protected void updateItem(Appointment a, boolean empty) {
+                super.updateItem(a, empty);
+                if (empty || a == null) {
+                    setText("");
+                } else {
+                    setText(String.format("Visit #%d · %s (%s)", a.getId(), a.getAppointmentDateTime().toLocalDate(), a.getReason()));
+                }
+            }
+        });
+        cbParentAppointment.setButtonCell(new ListCell<>() {
+            @Override
+            protected void updateItem(Appointment a, boolean empty) {
+                super.updateItem(a, empty);
+                if (empty || a == null) {
+                    setText("Select Prior Visit to Follow Up");
+                } else {
+                    setText(String.format("Visit #%d · %s (%s)", a.getId(), a.getAppointmentDateTime().toLocalDate(), a.getReason()));
+                }
+            }
+        });
+
+        Label lblFollowUp = new Label("Prior Visit to Follow Up *");
+        lblFollowUp.setStyle("-fx-font-weight: bold; -fx-text-fill: #334155;");
+        followUpContainer.getChildren().addAll(lblFollowUp, cbParentAppointment);
+        followUpContainer.setVisible(false);
+        followUpContainer.setManaged(false);
+
+        cbType.valueProperty().addListener((obs, oldVal, newVal) -> updateFollowUpOptions());
+        cbPatient.valueProperty().addListener((obs, oldVal, newVal) -> updateFollowUpOptions());
+
         // Time Pickers
         HBox timeBox = new HBox(8, new Label("Hour:"), spinStartHour, new Label("Min:"), spinStartMinute);
         timeBox.setAlignment(Pos.CENTER_LEFT);
@@ -193,6 +241,7 @@ public class ScheduleView implements View {
                 drawerTitle, conflictAlertBanner,
                 new Label("Patient *"), cbPatient,
                 new Label("Consultation Type *"), cbType,
+                followUpContainer,
                 new Label("Start Time *"), timeBox,
                 new Label("Duration (minutes) *"), spinDuration,
                 new Label("Clinical Reason"), txtReason,
@@ -202,6 +251,7 @@ public class ScheduleView implements View {
     }
 
     public void refreshTimetable() {
+        hideSuccessBanner();
         slotContainer.getChildren().clear();
         Doctor selectedDoctor = cbDoctor.getValue();
         LocalDate selectedDate = dpDate.getValue();
@@ -237,17 +287,39 @@ public class ScheduleView implements View {
             timeLabel.setStyle("-fx-font-weight: bold; -fx-pref-width: 110px; -fx-text-fill: #334155;");
 
             if (coveringAppt != null) {
-                // Occupied Slot
-                slotRow.setStyle("-fx-padding: 10px 14px; -fx-background-color: #fef2f2; -fx-background-radius: 8px; -fx-border-color: #fecaca; -fx-border-radius: 8px;");
-                Label badge = new Label("OCCUPIED");
-                badge.getStyleClass().addAll("status-badge", "badge-cancelled");
+                final Appointment appt = coveringAppt;
+                boolean isCompleted = appt.getStatus() == AppointmentStatus.COMPLETED;
 
-                String patientName = resolvePatientName(coveringAppt.getPatientId());
-                Label desc = new Label(patientName + " · " + coveringAppt.getType() + " (" + coveringAppt.getReason() + ")");
-                desc.setStyle("-fx-text-fill: #991b1b; -fx-font-weight: 500;");
+                slotRow.setStyle("-fx-padding: 10px 14px; -fx-background-color: #ffffff; -fx-background-radius: 8px; -fx-border-color: #e2e8f0; -fx-border-radius: 8px;");
+
+                Label badge = new Label(isCompleted ? "COMPLETED" : "OCCUPIED");
+                badge.getStyleClass().addAll("status-badge", isCompleted ? "badge-confirmed" : "badge-cancelled");
+
+                String patientName = resolvePatientName(appt.getPatientId());
+                Label desc = new Label(patientName + " · " + appt.getType() + " (" + appt.getReason() + ")");
+                desc.setStyle(isCompleted ? "-fx-text-fill: #166534; -fx-font-weight: 500;" : "-fx-text-fill: #334155; -fx-font-weight: 500;");
                 HBox.setHgrow(desc, Priority.ALWAYS);
 
-                slotRow.getChildren().addAll(timeLabel, badge, desc);
+                HBox actions = new HBox(8);
+                actions.setAlignment(Pos.CENTER_RIGHT);
+
+                if (!isCompleted) {
+                    Button btnComplete = new Button("Complete Visit");
+                    btnComplete.setStyle("-fx-background-color: #059669; -fx-text-fill: #ffffff; -fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 4 10; -fx-background-radius: 4; -fx-cursor: hand;");
+                    btnComplete.setOnAction(e -> handleCompleteAppointment(appt));
+
+                    Button btnCancelAppt = new Button("Cancel Slot");
+                    btnCancelAppt.setStyle("-fx-background-color: transparent; -fx-text-fill: #dc2626; -fx-border-color: #fca5a5; -fx-border-radius: 4; -fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 3 9; -fx-cursor: hand;");
+                    btnCancelAppt.setOnAction(e -> handleCancelAppointment(appt));
+
+                    actions.getChildren().addAll(btnComplete, btnCancelAppt);
+                } else {
+                    Label billedBadge = new Label("Billed ✓");
+                    billedBadge.setStyle("-fx-text-fill: #059669; -fx-font-weight: bold; -fx-font-size: 11px;");
+                    actions.getChildren().add(billedBadge);
+                }
+
+                slotRow.getChildren().addAll(timeLabel, badge, desc, actions);
             } else {
                 // Available Slot
                 Label badge = new Label("AVAILABLE");
@@ -291,14 +363,42 @@ public class ScheduleView implements View {
     }
 
     private void openBookingDrawer(LocalTime initialTime) {
+        hideSuccessBanner();
         if (initialTime != null) {
             spinStartHour.getValueFactory().setValue(initialTime.getHour());
             spinStartMinute.getValueFactory().setValue(initialTime.getMinute());
         }
+        updateFollowUpOptions();
         conflictAlertBanner.getChildren().clear();
         conflictAlertBanner.setVisible(false);
         conflictAlertBanner.setManaged(false);
         toggleBookingDrawer(true);
+    }
+
+    private void updateFollowUpOptions() {
+        AppointmentType type = cbType.getValue();
+        Patient patient = cbPatient.getValue();
+        if (type == AppointmentType.FOLLOW_UP && patient != null && patient.getId() != null) {
+            try {
+                List<Appointment> patientVisits = appointmentDao.findByPatientId(patient.getId()).stream()
+                        .filter(a -> a.getStatus() != AppointmentStatus.CANCELLED)
+                        .toList();
+                cbParentAppointment.setItems(FXCollections.observableArrayList(patientVisits));
+                if (!patientVisits.isEmpty()) {
+                    cbParentAppointment.setValue(patientVisits.get(0));
+                } else {
+                    cbParentAppointment.setValue(null);
+                }
+                followUpContainer.setVisible(true);
+                followUpContainer.setManaged(true);
+            } catch (Exception e) {
+                System.err.println("Error fetching patient appointments for follow-up: " + e.getMessage());
+            }
+        } else {
+            followUpContainer.setVisible(false);
+            followUpContainer.setManaged(false);
+            cbParentAppointment.setValue(null);
+        }
     }
 
     private void toggleBookingDrawer(boolean show) {
@@ -336,6 +436,23 @@ public class ScheduleView implements View {
                 ? txtReason.getText().trim()
                 : "Consultation";
 
+        Long parentId = null;
+        if (type == AppointmentType.FOLLOW_UP) {
+            if (cbParentAppointment.getValue() != null) {
+                parentId = cbParentAppointment.getValue().getId();
+            } else {
+                try {
+                    List<Appointment> patientVisits = appointmentDao.findByPatientId(patient.getId()).stream()
+                            .filter(a -> a.getStatus() != AppointmentStatus.CANCELLED)
+                            .toList();
+                    if (!patientVisits.isEmpty()) {
+                        parentId = patientVisits.get(0).getId();
+                    }
+                } catch (Exception ignored) {
+                }
+            }
+        }
+
         // Construct Candidate Appointment matching Appointment.java 8-parameter constructor
         Appointment candidate = new Appointment(
                 null,
@@ -344,7 +461,7 @@ public class ScheduleView implements View {
                 startDateTime,
                 reason,
                 AppointmentStatus.CONFIRMED,
-                null,
+                parentId,
                 type
         );
 
@@ -357,12 +474,12 @@ public class ScheduleView implements View {
 
         // Persist confirmed appointment to SQLite
         try {
-            appointmentDao.save(candidate);
+            Appointment saved = appointmentDao.save(candidate);
             toggleBookingDrawer(false);
             refreshTimetable();
-            showSuccess("Appointment confirmed for " + patient.getFullName() + " at " + startTime + ".");
+            showSuccess("Appointment booked for " + patient.getFullName() + " at " + startTime + ".");
         } catch (Exception ex) {
-            showConflictError("Database persistence error: " + ex.getMessage());
+            showConflictError("Could not save appointment: " + ex.getMessage());
         }
     }
 
@@ -378,6 +495,47 @@ public class ScheduleView implements View {
         successBanner.setText(msg);
         successBanner.setVisible(true);
         successBanner.setManaged(true);
+        successTimer.setOnFinished(e -> hideSuccessBanner());
+        successTimer.playFromStart();
+    }
+
+    private void hideSuccessBanner() {
+        successBanner.setVisible(false);
+        successBanner.setManaged(false);
+    }
+
+    private void handleCompleteAppointment(Appointment appt) {
+        if (appt == null || appt.getId() == null) return;
+        try {
+            appt.setStatus(AppointmentStatus.COMPLETED);
+            appointmentDao.update(appt);
+            if (billingService != null) {
+                billingService.generateInvoiceForAppointment(appt.getId());
+            }
+            refreshTimetable();
+            showSuccess("Consultation completed. Bill generated and ready in Invoices & Billing.");
+        } catch (Exception ex) {
+            showConflictError("Error completing appointment: " + ex.getMessage());
+        }
+    }
+
+    private void handleCancelAppointment(Appointment appt) {
+        if (appt == null || appt.getId() == null) return;
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Confirm Cancellation");
+        confirm.setHeaderText("Cancel appointment for " + resolvePatientName(appt.getPatientId()) + "?");
+        confirm.setContentText("This will cancel the booking and reopen the time slot on the doctor's schedule.");
+        Optional<ButtonType> result = confirm.showAndWait();
+        if (result.isPresent() && result.get() == ButtonType.OK) {
+            try {
+                appt.setStatus(AppointmentStatus.CANCELLED);
+                appointmentDao.update(appt);
+                refreshTimetable();
+                showSuccess("Appointment cancelled. Timetable slot is now open.");
+            } catch (Exception ex) {
+                showConflictError("Error cancelling appointment: " + ex.getMessage());
+            }
+        }
     }
 
     private void loadDoctors() {

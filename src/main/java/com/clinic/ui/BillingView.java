@@ -93,7 +93,7 @@ public class BillingView implements View {
         VBox headerBox = new VBox(4);
         Label title = new Label("Invoices & Billing Ledger");
         title.setStyle("-fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #0f172a;");
-        Label subtitle = new Label("Manage accounts receivable, record payments in MUR, and track care chain financial rollups.");
+        Label subtitle = new Label("Review patient consultation bills, record payments in MUR, and track connected treatment plans.");
         subtitle.setStyle("-fx-font-size: 13px; -fx-text-fill: #64748b;");
         headerBox.getChildren().addAll(title, subtitle);
 
@@ -130,10 +130,12 @@ public class BillingView implements View {
         HBox bar = new HBox(16);
         bar.setAlignment(Pos.CENTER_LEFT);
 
-        VBox card1 = createMetricCard("TOTAL BILLED (MUR)", totalBilledValue = new Label("MUR 0.00"), "#0284c7");
-        VBox card2 = createMetricCard("COLLECTED REVENUE", collectedRevenueValue = new Label("MUR 0.00"), "#059669");
-        VBox card3 = createMetricCard("PENDING RECEIVABLES", pendingReceivablesValue = new Label("MUR 0.00"), "#d97706");
-        VBox card4 = createMetricCard("SETTLED INVOICES", settledCountValue = new Label("0 / 0"), "#6366f1");
+        String moneyGreen = "#059669"; // Unified professional clinical green
+
+        VBox card1 = createMetricCard("TOTAL INVOICED (MUR)", totalBilledValue = new Label("MUR 0.00"), moneyGreen);
+        VBox card2 = createMetricCard("COLLECTED PAYMENTS", collectedRevenueValue = new Label("MUR 0.00"), moneyGreen);
+        VBox card3 = createMetricCard("PENDING PAYMENTS", pendingReceivablesValue = new Label("MUR 0.00"), moneyGreen);
+        VBox card4 = createMetricCard("PAID INVOICES", settledCountValue = new Label("0 / 0"), moneyGreen);
 
         HBox.setHgrow(card1, Priority.ALWAYS);
         HBox.setHgrow(card2, Priority.ALWAYS);
@@ -168,7 +170,7 @@ public class BillingView implements View {
         searchField.setStyle("-fx-padding: 8 12; -fx-background-radius: 6; -fx-border-color: #cbd5e1; -fx-border-radius: 6;");
 
         ComboBox<String> statusFilter = new ComboBox<>();
-        statusFilter.getItems().addAll("All Invoices", "Pending Settlement", "Paid in Full");
+        statusFilter.getItems().addAll("All Invoices", "Pending Payment", "Paid in Full");
         statusFilter.setValue("All Invoices");
         statusFilter.setStyle("-fx-padding: 6 10; -fx-background-radius: 6;");
 
@@ -181,8 +183,8 @@ public class BillingView implements View {
 
     private void applyFilter(String statusOption, String searchText) {
         String filter = "ALL";
-        if ("Pending Settlement".equalsIgnoreCase(statusOption)) filter = "PENDING";
-        else if ("Paid in Full".equalsIgnoreCase(statusOption)) filter = "PAID";
+        if (statusOption != null && statusOption.toLowerCase().contains("pending")) filter = "PENDING";
+        else if (statusOption != null && statusOption.toLowerCase().contains("paid")) filter = "PAID";
 
         List<Invoice> filtered = billingService.filterInvoices(filter, searchText);
         invoiceObservableList.setAll(filtered);
@@ -223,7 +225,18 @@ public class BillingView implements View {
         colTotal.setCellValueFactory(data -> new SimpleStringProperty(
                 String.format("MUR %,.2f", data.getValue().calculateTotalMur())
         ));
-        colTotal.setStyle("-fx-alignment: CENTER_RIGHT;");
+        colTotal.setCellFactory(col -> new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText(item);
+                    setStyle("-fx-alignment: CENTER_RIGHT; -fx-font-weight: bold; -fx-text-fill: #059669;");
+                }
+            }
+        });
         colTotal.setPrefWidth(110);
 
         TableColumn<Invoice, String> colStatus = new TableColumn<>("Status");
@@ -237,11 +250,11 @@ public class BillingView implements View {
                     setGraphic(null);
                 } else {
                     Label badge = new Label(item);
-                    badge.setStyle("-fx-padding: 3 8; -fx-background-radius: 4; -fx-font-size: 11px; -fx-font-weight: bold;");
+                    badge.setStyle("-fx-font-size: 11px; -fx-font-weight: bold; -fx-background-color: transparent;");
                     if (item.contains("Paid")) {
-                        badge.setStyle(badge.getStyle() + "-fx-background-color: #d1fae5; -fx-text-fill: #065f46;");
+                        badge.setStyle(badge.getStyle() + " -fx-text-fill: #059669;");
                     } else {
-                        badge.setStyle(badge.getStyle() + "-fx-background-color: #fef3c7; -fx-text-fill: #92400e;");
+                        badge.setStyle(badge.getStyle() + " -fx-text-fill: #d97706;");
                     }
                     setGraphic(badge);
                     setText(null);
@@ -269,7 +282,7 @@ public class BillingView implements View {
         HBox.setHgrow(detailTitle, Priority.ALWAYS);
 
         detailStatusBadge = new Label();
-        detailStatusBadge.setStyle("-fx-padding: 3 8; -fx-background-radius: 4; -fx-font-size: 11px; -fx-font-weight: bold;");
+        detailStatusBadge.setStyle("-fx-font-size: 11px; -fx-font-weight: bold; -fx-background-color: transparent;");
         detailStatusBadge.setVisible(false);
 
         headerLine.getChildren().addAll(detailTitle, detailStatusBadge);
@@ -293,13 +306,13 @@ public class BillingView implements View {
         // Care Chain Banner (shown if part of recursive follow-up treatment plan)
         careChainBanner = new HBox(8);
         careChainBanner.setAlignment(Pos.CENTER_LEFT);
-        careChainBanner.setPadding(new Insets(8, 12, 8, 12));
-        careChainBanner.setStyle("-fx-background-color: #e0f2fe; -fx-background-radius: 6px; -fx-border-color: #bae6fd; -fx-border-radius: 6px;");
+        careChainBanner.setPadding(new Insets(4, 0, 4, 0));
+        careChainBanner.setStyle("-fx-background-color: transparent;");
         careChainBanner.setVisible(false);
         careChainBanner.setManaged(false);
 
         careChainText = new Label();
-        careChainText.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #0369a1;");
+        careChainText.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #059669;");
         careChainBanner.getChildren().add(careChainText);
 
         // Items Table
@@ -317,7 +330,18 @@ public class BillingView implements View {
         colAmt.setCellValueFactory(data -> new SimpleStringProperty(
                 String.format("MUR %,.2f", data.getValue().getAmountMur())
         ));
-        colAmt.setStyle("-fx-alignment: CENTER_RIGHT;");
+        colAmt.setCellFactory(col -> new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText(item);
+                    setStyle("-fx-alignment: CENTER_RIGHT; -fx-font-weight: 600; -fx-text-fill: #059669;");
+                }
+            }
+        });
         colAmt.setPrefWidth(120);
 
         itemsTable.getColumns().addAll(colDesc, colAmt);
@@ -334,7 +358,7 @@ public class BillingView implements View {
         subsidyLbl.setStyle("-fx-text-fill: #64748b; -fx-font-size: 11px;");
 
         totalPayableLbl = new Label("Total Payable: MUR 0.00");
-        totalPayableLbl.setStyle("-fx-font-size: 15px; -fx-font-weight: bold; -fx-text-fill: #0f172a;");
+        totalPayableLbl.setStyle("-fx-font-size: 15px; -fx-font-weight: bold; -fx-text-fill: #059669;");
 
         summaryCard.getChildren().addAll(subtotalLbl, subsidyLbl, totalPayableLbl);
 
@@ -381,9 +405,9 @@ public class BillingView implements View {
         detailStatusBadge.setText(invoice.getStatus().getDisplayName());
         detailStatusBadge.setVisible(true);
         if (invoice.getStatus() == PaymentStatus.PAID) {
-            detailStatusBadge.setStyle("-fx-padding: 3 8; -fx-background-radius: 4; -fx-font-size: 11px; -fx-font-weight: bold; -fx-background-color: #d1fae5; -fx-text-fill: #065f46;");
+            detailStatusBadge.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-background-color: transparent; -fx-text-fill: #059669;");
         } else {
-            detailStatusBadge.setStyle("-fx-padding: 3 8; -fx-background-radius: 4; -fx-font-size: 11px; -fx-font-weight: bold; -fx-background-color: #fef3c7; -fx-text-fill: #92400e;");
+            detailStatusBadge.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-background-color: transparent; -fx-text-fill: #d97706;");
         }
 
         // Retrieve Patient & Doctor
@@ -401,7 +425,7 @@ public class BillingView implements View {
             // Check Care Chain Rollup
             if (appt.getParentAppointmentId() != null || !appointmentDao.findByParentAppointmentId(appt.getId()).isEmpty()) {
                 CareChainSummary summary = billingService.getCareChainFinancialRollup(appt.getId());
-                careChainText.setText(String.format("Care Plan: %d Visits · Multi-Visit Rollup: MUR %,.2f",
+                careChainText.setText(String.format("Treatment Plan: %d Connected Visits · Total Course Cost: MUR %,.2f",
                         summary.getTotalVisits(), summary.getTotalCostMur()));
                 careChainBanner.setVisible(true);
                 careChainBanner.setManaged(true);
@@ -482,5 +506,10 @@ public class BillingView implements View {
     @Override
     public Parent getRoot() {
         return root;
+    }
+
+    @Override
+    public void onShow() {
+        refreshLedger();
     }
 }

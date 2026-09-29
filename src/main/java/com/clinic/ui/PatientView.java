@@ -13,6 +13,7 @@ import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 // Patient Directory and Medical Records Screen with Live Search
 public class PatientView implements View {
@@ -30,6 +31,7 @@ public class PatientView implements View {
     private final TextField txtPhone = new TextField();
     private final TextField txtEmail = new TextField();
     private final DatePicker dpDob = new DatePicker(LocalDate.of(1990, 1, 1));
+    private final ComboBox<String> cbBloodGroup = new ComboBox<>();
     private final TextArea txtNotes = new TextArea();
     private final VBox alertBanner = new VBox(4);
 
@@ -92,25 +94,47 @@ public class PatientView implements View {
         // Configure TableView Columns
         TableColumn<Patient, String> colId = new TableColumn<>("ID");
         colId.setCellValueFactory(d -> new SimpleStringProperty(String.valueOf(d.getValue().getId())));
-        colId.setPrefWidth(60);
+        colId.setPrefWidth(50);
 
         TableColumn<Patient, String> colName = new TableColumn<>("FULL NAME");
         colName.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getFullName()));
-        colName.setPrefWidth(200);
+        colName.setPrefWidth(180);
 
         TableColumn<Patient, String> colPhone = new TableColumn<>("PHONE");
         colPhone.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getPhoneNumber()));
-        colPhone.setPrefWidth(140);
+        colPhone.setPrefWidth(130);
 
         TableColumn<Patient, String> colEmail = new TableColumn<>("EMAIL");
         colEmail.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getEmail() != null ? d.getValue().getEmail() : "-"));
-        colEmail.setPrefWidth(180);
+        colEmail.setPrefWidth(170);
 
         TableColumn<Patient, String> colDob = new TableColumn<>("DATE OF BIRTH");
         colDob.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getDateOfBirth() != null ? d.getValue().getDateOfBirth().toString() : "-"));
-        colDob.setPrefWidth(120);
+        colDob.setPrefWidth(110);
 
-        table.getColumns().addAll(colId, colName, colPhone, colEmail, colDob);
+        TableColumn<Patient, String> colBlood = new TableColumn<>("BLOOD");
+        colBlood.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getBloodGroup() != null ? d.getValue().getBloodGroup() : "-"));
+        colBlood.setPrefWidth(70);
+
+        TableColumn<Patient, Void> colActions = new TableColumn<>("ACTION");
+        colActions.setPrefWidth(85);
+        colActions.setCellFactory(col -> new TableCell<>() {
+            private final Button btnDelete = new Button("Delete");
+            {
+                btnDelete.setStyle("-fx-background-color: transparent; -fx-text-fill: #dc2626; -fx-border-color: #fca5a5; -fx-border-radius: 4; -fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 2 8; -fx-cursor: hand;");
+                btnDelete.setOnAction(e -> {
+                    Patient p = getTableView().getItems().get(getIndex());
+                    handleDeletePatient(p);
+                });
+            }
+            @Override
+            protected void updateItem(Void item, boolean empty) {
+                super.updateItem(item, empty);
+                setGraphic(empty ? null : btnDelete);
+            }
+        });
+
+        table.getColumns().addAll(colId, colName, colPhone, colEmail, colDob, colBlood, colActions);
         table.setItems(filteredPatients);
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         VBox.setVgrow(table, Priority.ALWAYS);
@@ -133,9 +157,13 @@ public class PatientView implements View {
         drawerTitle.setStyle("-fx-font-weight: bold; -fx-font-size: 16px; -fx-text-fill: #0f172a;");
 
         // Inline Alert Banner
-        alertBanner.setStyle("-fx-background-color: #fee2e2; -fx-border-color: #ef4444; -fx-border-radius: 6px; -fx-padding: 8px;");
+        alertBanner.setStyle("-fx-background-color: transparent; -fx-padding: 4px 0;");
         alertBanner.setVisible(false);
         alertBanner.setManaged(false);
+
+        cbBloodGroup.setItems(FXCollections.observableArrayList("A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"));
+        cbBloodGroup.setValue("O+");
+        cbBloodGroup.setMaxWidth(Double.MAX_VALUE);
 
         txtName.setPromptText("e.g. Marie Claire Dupont");
         txtPhone.setPromptText("e.g. +230 5123 4567");
@@ -159,6 +187,7 @@ public class PatientView implements View {
                 new Label("Phone Number *"), txtPhone,
                 new Label("Email Address"), txtEmail,
                 new Label("Date of Birth"), dpDob,
+                new Label("Blood Group *"), cbBloodGroup,
                 new Label("Clinical Notes"), txtNotes,
                 btnSave, btnCancel
         );
@@ -184,6 +213,7 @@ public class PatientView implements View {
         String phone = txtPhone.getText() != null ? txtPhone.getText().trim() : "";
         String email = txtEmail.getText() != null ? txtEmail.getText().trim() : "";
         LocalDate dob = dpDob.getValue();
+        String blood = cbBloodGroup.getValue() != null ? cbBloodGroup.getValue() : "O+";
         String notes = txtNotes.getText() != null ? txtNotes.getText().trim() : "";
 
         // Validation guards using Patient static rules
@@ -205,12 +235,37 @@ public class PatientView implements View {
         }
 
         try {
-            Patient newPatient = new Patient(null, name, email, phone, dpDob.getValue() != null ? dpDob.getValue() : LocalDate.of(1990, 1, 1));
+            Patient newPatient = new Patient((Long) null, name, email, phone, dob != null ? dob : LocalDate.of(1990, 1, 1), blood);
             Patient created = patientDao.save(newPatient);
             patientList.add(created);
             toggleFormDrawer(false);
         } catch (Exception ex) {
-            showError("Database error: " + ex.getMessage());
+            showError("Could not save patient: " + ex.getMessage());
+        }
+    }
+
+    private void handleDeletePatient(Patient patient) {
+        if (patient == null || patient.getId() == null) return;
+        alertBanner.getChildren().clear();
+        alertBanner.setVisible(false);
+        alertBanner.setManaged(false);
+
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Confirm Patient Deletion");
+        confirm.setHeaderText("Delete patient: " + patient.getFullName() + "?");
+        confirm.setContentText("This will permanently remove the patient record from the database.");
+        Optional<ButtonType> result = confirm.showAndWait();
+        if (result.isPresent() && result.get() == ButtonType.OK) {
+            try {
+                boolean deleted = patientDao.deleteById(patient.getId());
+                if (deleted) {
+                    patientList.remove(patient);
+                } else {
+                    showError("Could not delete patient #" + patient.getId());
+                }
+            } catch (Exception ex) {
+                showError("Cannot delete patient: Patient has active appointments or billing records on file.");
+            }
         }
     }
 
@@ -227,6 +282,7 @@ public class PatientView implements View {
         txtPhone.clear();
         txtEmail.clear();
         dpDob.setValue(LocalDate.of(1990, 1, 1));
+        cbBloodGroup.setValue("O+");
         txtNotes.clear();
         alertBanner.getChildren().clear();
         alertBanner.setVisible(false);
