@@ -20,6 +20,10 @@ import java.util.Optional;
 
 public class SqliteAppointmentDao implements AppointmentDao {
 
+    // Default constructor for application and JavaFX composition root
+    public SqliteAppointmentDao() {
+        this.dbConnection = null;
+    }
     private final DatabaseConnection dbConnection;
     // Keeps appointment date/time values in a consistent format
     // when storing and reading them from SQLite.

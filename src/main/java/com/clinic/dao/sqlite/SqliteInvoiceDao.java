@@ -18,6 +18,11 @@ import java.util.Optional;
 
 public class SqliteInvoiceDao implements InvoiceDao {
 
+    // Default constructor for application and JavaFX composition root
+    public SqliteInvoiceDao() {
+        this.dbConnection = null;
+    }
+
     private final DatabaseConnection dbConnection;
     // Creates the DAO using the provided database connection.
 
