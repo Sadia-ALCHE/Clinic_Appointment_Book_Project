@@ -1,6 +1,6 @@
 # MediCare Clinic Appointment Book
 
-A desktop application designed for clinic front-desk attendants and physicians to manage daily appointments, patient records, doctor timetables, and billing. Built with **JavaFX** and a local **SQLite** database.
+A desktop application designed for clinic front-desk attendants to manage daily appointments, patient records, doctor timetables, and billing. Built with **JavaFX** and a local **SQLite** database.
 
 ---
 
